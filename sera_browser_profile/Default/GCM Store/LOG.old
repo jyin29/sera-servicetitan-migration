@@ -1,2 +1,3 @@
-2026/07/22-14:51:20.999 5cc0 Creating DB C:\Users\melis\OneDrive\Documents\GitHub\sera-servicetitan-migration\sera_browser_profile\Default\GCM Store since it was missing.
-2026/07/22-14:51:21.104 5cc0 Reusing MANIFEST C:\Users\melis\OneDrive\Documents\GitHub\sera-servicetitan-migration\sera_browser_profile\Default\GCM Store/MANIFEST-000001
+2026/07/22-16:35:05.413 5dd0 Reusing MANIFEST C:\Users\melis\OneDrive\Documents\GitHub\sera-servicetitan-migration\sera_browser_profile\Default\GCM Store/MANIFEST-000001
+2026/07/22-16:35:05.415 5dd0 Recovering log #3
+2026/07/22-16:35:05.464 5dd0 Reusing old log C:\Users\melis\OneDrive\Documents\GitHub\sera-servicetitan-migration\sera_browser_profile\Default\GCM Store/000003.log 

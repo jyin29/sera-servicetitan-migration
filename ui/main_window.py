@@ -1,4 +1,10 @@
+from ui.logger import StdoutRedirect
 import customtkinter as ctk
+import threading
+import traceback
+from tkinter import filedialog
+from test_sera import run as sera_download
+
 
 
 class MainWindow:
@@ -15,6 +21,8 @@ class MainWindow:
         self.root.geometry("900x650")
 
         self.build()
+
+        self.stdout = StdoutRedirect(self.write)
 
     def build(self):
 
@@ -71,7 +79,32 @@ class MainWindow:
         self.log.see("end")
 
     def download_clicked(self):
-        self.write("Download button clicked.\n")
+
+        self.write("Starting Sera downloader...\n")
+
+        thread = threading.Thread(
+            target=self.run_downloader,
+            daemon=True
+        )
+
+        thread.start()
+    def run_downloader(self):
+
+        self.stdout.start()
+
+        try:
+
+            sera_download()
+
+            print("\nDownload complete.")
+
+        except Exception:
+
+            print(traceback.format_exc())
+
+        finally:
+
+            self.stdout.stop()
 
     def manifest_clicked(self):
         self.write("Generate Manifest clicked.\n")

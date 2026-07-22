@@ -1,2 +1,3 @@
-2026/07/22-14:51:13.603 5a58 Creating DB C:\Users\melis\OneDrive\Documents\GitHub\sera-servicetitan-migration\sera_browser_profile\Default\shared_proto_db\metadata since it was missing.
-2026/07/22-14:51:13.612 5a58 Reusing MANIFEST C:\Users\melis\OneDrive\Documents\GitHub\sera-servicetitan-migration\sera_browser_profile\Default\shared_proto_db\metadata/MANIFEST-000001
+2026/07/22-16:34:59.344 32b0 Reusing MANIFEST C:\Users\melis\OneDrive\Documents\GitHub\sera-servicetitan-migration\sera_browser_profile\Default\shared_proto_db\metadata/MANIFEST-000001
+2026/07/22-16:34:59.345 32b0 Recovering log #3
+2026/07/22-16:34:59.346 32b0 Reusing old log C:\Users\melis\OneDrive\Documents\GitHub\sera-servicetitan-migration\sera_browser_profile\Default\shared_proto_db\metadata/000003.log 

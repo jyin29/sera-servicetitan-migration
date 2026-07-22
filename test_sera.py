@@ -10,7 +10,7 @@ import re
 # SETTINGS
 # ============================================================
 
-EXCEL_FILE = "CustomerContactReport-2026-07-22-58a68e.xlsx"
+EXCEL_FILE = r"C:\Users\melis\sera-migration\CustomerContactReport-2026-07-22-58a68e.xlsx"
 
 BASE_URL = "https://grmetro.sera.tech/customers"
 
@@ -24,6 +24,8 @@ LOG_FILE = Path("download_log.csv")
 TEST_MODE = True
 
 TEST_CUSTOMER_COUNT = 5
+
+RUNTIME_EXCEL_FILE = None
 
 
 # ============================================================
@@ -193,630 +195,647 @@ def write_log(
 # READ SERA CUSTOMER IDS
 # ============================================================
 
-print("Reading customer list...")
+def run(excel_file=None):
 
-workbook = load_workbook(
+    global RUNTIME_EXCEL_FILE
 
-    EXCEL_FILE,
+    if excel_file is not None:
+        RUNTIME_EXCEL_FILE = excel_file
 
-    read_only=True
+    print("Reading customer list...")
 
-)
+    print("Workbook:", RUNTIME_EXCEL_FILE or EXCEL_FILE)
 
-sheet = workbook.active
+    from pathlib import Path
 
-customer_ids = []
+    print("Absolute:", Path(RUNTIME_EXCEL_FILE or EXCEL_FILE).resolve())
 
+    print("Exists:", Path(RUNTIME_EXCEL_FILE or EXCEL_FILE).exists())
 
-# Column A = Id
+    workbook = load_workbook(
 
-for row in sheet.iter_rows(
+        RUNTIME_EXCEL_FILE or EXCEL_FILE,
 
-    min_row=2,
-
-    max_col=1,
-
-    values_only=True
-
-):
-
-    customer_id = row[0]
-
-    if customer_id:
-
-        customer_ids.append(
-            str(customer_id).strip()
-        )
-
-
-print(
-    f"Found {len(customer_ids)} customers."
-)
-
-
-if TEST_MODE:
-
-    customer_ids = customer_ids[
-        :TEST_CUSTOMER_COUNT
-    ]
-
-    print(
-        f"TEST MODE: Processing "
-        f"{len(customer_ids)} customers."
-    )
-
-else:
-
-    print(
-        f"FULL MODE: Processing "
-        f"{len(customer_ids)} customers."
-    )
-
-
-initialize_log()
-
-
-# ============================================================
-# OPEN SERA
-# ============================================================
-
-with sync_playwright() as p:
-
-    context = p.chromium.launch_persistent_context(
-
-        "sera_browser_profile",
-
-        headless=False
+        read_only=True
 
     )
 
+    sheet = workbook.active
 
-    page = (
-
-        context.pages[0]
-
-        if context.pages
-
-        else context.new_page()
-
-    )
+    customer_ids = []
 
 
-    # ========================================================
-    # PROCESS CUSTOMERS
-    # ========================================================
+    # Column A = Id
 
-    for customer_number, customer_id in enumerate(
+    for row in sheet.iter_rows(
 
-        customer_ids,
+        min_row=2,
 
-        start=1
+        max_col=1,
+
+        values_only=True
 
     ):
 
-        print("\n" + "=" * 60)
+        customer_id = row[0]
 
-        print(
+        if customer_id:
 
-            f"[{customer_number}/"
-            f"{len(customer_ids)}] "
-            f"Customer {customer_id}"
-
-        )
-
-        print("=" * 60)
-
-
-        customer_folder = (
-
-            DOWNLOAD_FOLDER /
-
-            f"Customer_{customer_id}"
-
-        )
-
-        customer_folder.mkdir(
-
-            exist_ok=True
-
-        )
-
-
-        url = (
-
-            f"{BASE_URL}/"
-
-            f"{customer_id}"
-
-            f"?tab=c_Media+and+Documents"
-
-        )
-
-
-        try:
-
-            page.goto(
-
-                url,
-
-                wait_until="domcontentloaded",
-
-                timeout=60000
-
+            customer_ids.append(
+                str(customer_id).strip()
             )
 
 
-            page.wait_for_timeout(1500)
+    print(
+        f"Found {len(customer_ids)} customers."
+    )
 
 
-            images = page.locator("img")
+    if TEST_MODE:
+
+        customer_ids = customer_ids[
+            :TEST_CUSTOMER_COUNT
+        ]
+
+        print(
+            f"TEST MODE: Processing "
+            f"{len(customer_ids)} customers."
+        )
+
+    else:
+
+        print(
+            f"FULL MODE: Processing "
+            f"{len(customer_ids)} customers."
+        )
 
 
-            image_count = images.count()
+    initialize_log()
 
+
+    # ============================================================
+    # OPEN SERA
+    # ============================================================
+
+    with sync_playwright() as p:
+
+        context = p.chromium.launch_persistent_context(
+
+            "sera_browser_profile",
+
+            headless=False
+
+        )
+
+
+        page = (
+
+            context.pages[0]
+
+            if context.pages
+
+            else context.new_page()
+
+        )
+
+
+        # ========================================================
+        # PROCESS CUSTOMERS
+        # ========================================================
+
+        for customer_number, customer_id in enumerate(
+
+            customer_ids,
+
+            start=1
+
+        ):
+
+            print("\n" + "=" * 60)
 
             print(
 
-                f"Found {image_count} "
-                f"image elements"
+                f"[{customer_number}/"
+                f"{len(customer_ids)}] "
+                f"Customer {customer_id}"
+
+            )
+
+            print("=" * 60)
+
+
+            customer_folder = (
+
+                DOWNLOAD_FOLDER /
+
+                f"Customer_{customer_id}"
+
+            )
+
+            customer_folder.mkdir(
+
+                exist_ok=True
 
             )
 
 
-            real_media_number = 0
+            url = (
 
+                f"{BASE_URL}/"
 
-            for image_number in range(
+                f"{customer_id}"
 
-                image_count
+                f"?tab=c_Media+and+Documents"
 
-            ):
+            )
 
-                filename = ""
 
+            try:
 
-                try:
+                page.goto(
 
-                    image = images.nth(
+                    url,
 
-                        image_number
+                    wait_until="domcontentloaded",
 
-                    )
+                    timeout=60000
 
+                )
 
-                    filename = (
 
-                        image.get_attribute(
+                page.wait_for_timeout(1500)
 
-                            "alt"
 
-                        )
+                images = page.locator("img")
 
-                    )
 
+                image_count = images.count()
 
-                    # Skip fake UI image
 
-                    if (
+                print(
 
-                        filename
+                    f"Found {image_count} "
+                    f"image elements"
 
-                        and
+                )
 
-                        filename.strip().lower()
 
-                        == "membership icon"
+                real_media_number = 0
 
-                    ):
 
-                        print(
+                for image_number in range(
 
-                            "  Skipping "
-                            "Membership Icon"
+                    image_count
 
-                        )
+                ):
 
-                        continue
-
-
-                    real_media_number += 1
-
-
-                    # ------------------------------------------------
-                    # FIND JOB NUMBER
-                    # ------------------------------------------------
-
-                    job_number = get_job_number(
-
-                        image
-
-                    )
-
-
-                    print(
-
-                        f"  Job: #{job_number}"
-
-                    )
-
-
-                    # ------------------------------------------------
-                    # CREATE JOB FOLDER
-                    # ------------------------------------------------
-
-                    job_folder = (
-
-                        customer_folder /
-
-                        f"Job_{job_number}"
-
-                    )
-
-
-                    job_folder.mkdir(
-
-                        exist_ok=True
-
-                    )
-
-
-                    # ------------------------------------------------
-                    # OPEN MEDIA
-                    # ------------------------------------------------
-
-                    image.click()
-
-
-                    page.wait_for_timeout(
-
-                        700
-
-                    )
-
-
-                    download_link = (
-
-                        page.get_by_role(
-
-                            "link",
-
-                            name="Download"
-
-                        )
-
-                    )
-
-
-                    if (
-
-                        download_link.count()
-
-                        == 0
-
-                    ):
-
-                        print(
-
-                            "  Could not find "
-                            "Download link"
-
-                        )
-
-
-                        write_log(
-
-                            customer_id,
-
-                            job_number,
-
-                            filename,
-
-                            "",
-
-                            "Skipped",
-
-                            "Download link not found"
-
-                        )
-
-
-                        page.keyboard.press(
-
-                            "Escape"
-
-                        )
-
-
-                        continue
-
-
-                    href = (
-
-                        download_link
-
-                        .first
-
-                        .get_attribute(
-
-                            "href"
-
-                        )
-
-                    )
-
-
-                    if not href:
-
-                        print(
-
-                            "  Download link had "
-                            "no URL"
-
-                        )
-
-                        continue
-
-
-                    # ------------------------------------------------
-                    # DOWNLOAD FILE
-                    # ------------------------------------------------
-
-                    response = (
-
-                        page.request.get(
-
-                            href,
-
-                            timeout=60000
-
-                        )
-
-                    )
-
-
-                    if response.status != 200:
-
-                        print(
-
-                            f"  Download failed: "
-                            f"HTTP {response.status}"
-
-                        )
-
-                        write_log(
-
-                            customer_id,
-
-                            job_number,
-
-                            filename,
-
-                            "",
-
-                            "Failed",
-
-                            f"HTTP {response.status}"
-
-                        )
-
-                        continue
-
-
-                    # ------------------------------------------------
-                    # FILENAME
-                    # ------------------------------------------------
-
-                    filename = clean_filename(
-
-                        filename
-
-                    )
-
-
-                    if not filename:
-
-                        filename = (
-
-                            f"media_"
-
-                            f"{real_media_number}"
-
-                        )
-
-
-                    # Add extension if needed
-
-                    if not Path(
-
-                        filename
-
-                    ).suffix:
-
-                        extension = get_extension(
-
-                            response.headers.get(
-
-                                "content-type",
-
-                                ""
-
-                            )
-
-                        )
-
-                        filename += extension
-
-
-                    # ------------------------------------------------
-                    # SAVE FILE
-                    # ------------------------------------------------
-
-                    file_path = (
-
-                        job_folder /
-
-                        filename
-
-                    )
-
-
-                    # Avoid overwriting
-
-                    if file_path.exists():
-
-                        base = file_path.stem
-
-                        extension = (
-
-                            file_path.suffix
-
-                        )
-
-                        counter = 2
-
-
-                        while file_path.exists():
-
-                            file_path = (
-
-                                job_folder /
-
-                                f"{base}_"
-
-                                f"{counter}"
-
-                                f"{extension}"
-
-                            )
-
-                            counter += 1
-
-
-                    file_path.write_bytes(
-
-                        response.body()
-
-                    )
-
-
-                    print(
-
-                        f"  SAVED: {file_path}"
-
-                    )
-
-
-                    write_log(
-
-                        customer_id,
-
-                        job_number,
-
-                        filename,
-
-                        str(file_path),
-
-                        "Downloaded"
-
-                    )
-
-
-                    # Close viewer
-
-                    page.keyboard.press(
-
-                        "Escape"
-
-                    )
-
-
-                    page.wait_for_timeout(
-
-                        400
-
-                    )
-
-
-                except Exception as error:
-
-                    print(
-
-                        f"  ERROR: {error}"
-
-                    )
-
-
-                    write_log(
-
-                        customer_id,
-
-                        "Unknown",
-
-                        filename,
-
-                        "",
-
-                        "Error",
-
-                        str(error)
-
-                    )
+                    filename = ""
 
 
                     try:
 
+                        image = images.nth(
+
+                            image_number
+
+                        )
+
+
+                        filename = (
+
+                            image.get_attribute(
+
+                                "alt"
+
+                            )
+
+                        )
+
+
+                        # Skip fake UI image
+
+                        if (
+
+                            filename
+
+                            and
+
+                            filename.strip().lower()
+
+                            == "membership icon"
+
+                        ):
+
+                            print(
+
+                                "  Skipping "
+                                "Membership Icon"
+
+                            )
+
+                            continue
+
+
+                        real_media_number += 1
+
+
+                        # ------------------------------------------------
+                        # FIND JOB NUMBER
+                        # ------------------------------------------------
+
+                        job_number = get_job_number(
+
+                            image
+
+                        )
+
+
+                        print(
+
+                            f"  Job: #{job_number}"
+
+                        )
+
+
+                        # ------------------------------------------------
+                        # CREATE JOB FOLDER
+                        # ------------------------------------------------
+
+                        job_folder = (
+
+                            customer_folder /
+
+                            f"Job_{job_number}"
+
+                        )
+
+
+                        job_folder.mkdir(
+
+                            exist_ok=True
+
+                        )
+
+
+                        # ------------------------------------------------
+                        # OPEN MEDIA
+                        # ------------------------------------------------
+
+                        image.click()
+
+
+                        page.wait_for_timeout(
+
+                            700
+
+                        )
+
+
+                        download_link = (
+
+                            page.get_by_role(
+
+                                "link",
+
+                                name="Download"
+
+                            )
+
+                        )
+
+
+                        if (
+
+                            download_link.count()
+
+                            == 0
+
+                        ):
+
+                            print(
+
+                                "  Could not find "
+                                "Download link"
+
+                            )
+
+
+                            write_log(
+
+                                customer_id,
+
+                                job_number,
+
+                                filename,
+
+                                "",
+
+                                "Skipped",
+
+                                "Download link not found"
+
+                            )
+
+
+                            page.keyboard.press(
+
+                                "Escape"
+
+                            )
+
+
+                            continue
+
+
+                        href = (
+
+                            download_link
+
+                            .first
+
+                            .get_attribute(
+
+                                "href"
+
+                            )
+
+                        )
+
+
+                        if not href:
+
+                            print(
+
+                                "  Download link had "
+                                "no URL"
+
+                            )
+
+                            continue
+
+
+                        # ------------------------------------------------
+                        # DOWNLOAD FILE
+                        # ------------------------------------------------
+
+                        response = (
+
+                            page.request.get(
+
+                                href,
+
+                                timeout=60000
+
+                            )
+
+                        )
+
+
+                        if response.status != 200:
+
+                            print(
+
+                                f"  Download failed: "
+                                f"HTTP {response.status}"
+
+                            )
+
+                            write_log(
+
+                                customer_id,
+
+                                job_number,
+
+                                filename,
+
+                                "",
+
+                                "Failed",
+
+                                f"HTTP {response.status}"
+
+                            )
+
+                            continue
+
+
+                        # ------------------------------------------------
+                        # FILENAME
+                        # ------------------------------------------------
+
+                        filename = clean_filename(
+
+                            filename
+
+                        )
+
+
+                        if not filename:
+
+                            filename = (
+
+                                f"media_"
+
+                                f"{real_media_number}"
+
+                            )
+
+
+                        # Add extension if needed
+
+                        if not Path(
+
+                            filename
+
+                        ).suffix:
+
+                            extension = get_extension(
+
+                                response.headers.get(
+
+                                    "content-type",
+
+                                    ""
+
+                                )
+
+                            )
+
+                            filename += extension
+
+
+                        # ------------------------------------------------
+                        # SAVE FILE
+                        # ------------------------------------------------
+
+                        file_path = (
+
+                            job_folder /
+
+                            filename
+
+                        )
+
+
+                        # Avoid overwriting
+
+                        if file_path.exists():
+
+                            base = file_path.stem
+
+                            extension = (
+
+                                file_path.suffix
+
+                            )
+
+                            counter = 2
+
+
+                            while file_path.exists():
+
+                                file_path = (
+
+                                    job_folder /
+
+                                    f"{base}_"
+
+                                    f"{counter}"
+
+                                    f"{extension}"
+
+                                )
+
+                                counter += 1
+
+
+                        file_path.write_bytes(
+
+                            response.body()
+
+                        )
+
+
+                        print(
+
+                            f"  SAVED: {file_path}"
+
+                        )
+
+
+                        write_log(
+
+                            customer_id,
+
+                            job_number,
+
+                            filename,
+
+                            str(file_path),
+
+                            "Downloaded"
+
+                        )
+
+
+                        # Close viewer
+
                         page.keyboard.press(
 
                             "Escape"
 
                         )
 
-                    except:
 
-                        pass
+                        page.wait_for_timeout(
 
+                            400
 
-            time.sleep(1)
-
-
-        except Exception as error:
-
-            print(
-
-                f"ERROR processing customer "
-                f"{customer_id}: {error}"
-
-            )
+                        )
 
 
-    print("\n" + "=" * 60)
+                    except Exception as error:
 
-    print("TEST COMPLETE")
+                        print(
 
-    print("=" * 60)
+                            f"  ERROR: {error}"
 
-    print(
-
-        f"Files saved in: "
-
-        f"{DOWNLOAD_FOLDER.absolute()}"
-
-    )
-
-    print(
-
-        f"Log saved in: "
-
-        f"{LOG_FILE.absolute()}"
-
-    )
+                        )
 
 
-    input(
+                        write_log(
 
-        "\nPress Enter to close the browser..."
+                            customer_id,
 
-    )
+                            "Unknown",
+
+                            filename,
+
+                            "",
+
+                            "Error",
+
+                            str(error)
+
+                        )
 
 
-    context.close()
+                        try:
+
+                            page.keyboard.press(
+
+                                "Escape"
+
+                            )
+
+                        except:
+
+                            pass
+
+
+                time.sleep(1)
+
+
+            except Exception as error:
+
+                print(
+
+                    f"ERROR processing customer "
+                    f"{customer_id}: {error}"
+
+                )
+
+
+        print("\n" + "=" * 60)
+
+        print("TEST COMPLETE")
+
+        print("=" * 60)
+
+        print(
+
+            f"Files saved in: "
+
+            f"{DOWNLOAD_FOLDER.absolute()}"
+
+        )
+
+        print(
+
+            f"Log saved in: "
+
+            f"{LOG_FILE.absolute()}"
+
+        )
+
+
+        input(
+
+            "\nPress Enter to close the browser..."
+
+        )
+
+        if __name__ == "__main__":
+            run()
+
+        context.close()

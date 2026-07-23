@@ -1,5 +1,6 @@
 from inventory import Inventory
 from logger import MigrationLogger
+from stats import MigrationStats
 
 from servicetitan.browser import connect
 from servicetitan.job_search import JobSearcher
@@ -10,9 +11,13 @@ from servicetitan.uploader import Uploader
 class MigrationEngine:
 
     def __init__(self):
+
         self.logger = MigrationLogger()
+        self.stats = MigrationStats()
 
     def migrate_job(self, job):
+
+        self.stats.job()
 
         print()
         print("=" * 60)
@@ -21,19 +26,53 @@ class MigrationEngine:
         print(f"Files: {job.file_count}")
 
         #
-        # TEMPORARY: Force customer upload for testing.
-        # Once customer upload works, we'll change this back.
+        # Try opening the job first
         #
+        if self.job_search.open_job(job.job_number):
 
+            print("Uploading to job...")
+
+            uploaded, skipped = self.uploader.upload_to_job(job.files)
+
+            self.stats.uploaded_files(len(uploaded))
+            self.stats.skipped_files(len(skipped))
+
+            for file in uploaded:
+                self.logger.log(
+                    job.legacy_id,
+                    job.job_number,
+                    file.name,
+                    "SUCCESS",
+                    "JOB"
+                )
+
+            for file in skipped:
+                self.logger.log(
+                    job.legacy_id,
+                    job.job_number,
+                    file.name,
+                    "SKIPPED",
+                    "JOB",
+                    "Already exists"
+                )
+
+            return
+
+        #
+        # Job not found -> try customer
+        #
         print("Job not found.")
 
         if self.customer_search.open_customer(job.legacy_id):
 
             print("Uploading to customer...")
 
-            self.uploader.upload_to_customer(job.files)
+            uploaded, skipped = self.uploader.upload_to_customer(job.files)
 
-            for file in job.files:
+            self.stats.uploaded_files(len(uploaded))
+            self.stats.skipped_files(len(skipped))
+
+            for file in uploaded:
                 self.logger.log(
                     job.legacy_id,
                     job.job_number,
@@ -43,9 +82,24 @@ class MigrationEngine:
                     "Job not found"
                 )
 
+            for file in skipped:
+                self.logger.log(
+                    job.legacy_id,
+                    job.job_number,
+                    file.name,
+                    "SKIPPED",
+                    "CUSTOMER",
+                    "Already exists"
+                )
+
             return
 
+        #
+        # Neither job nor customer found
+        #
         print("FAILED")
+
+        self.stats.failed_files(len(job.files))
 
         for file in job.files:
             self.logger.log(
@@ -72,7 +126,6 @@ class MigrationEngine:
 
         try:
 
-            print("Getting page...")
             page = context.pages[0]
             print("Got page.")
 
@@ -81,12 +134,13 @@ class MigrationEngine:
             self.uploader = Uploader(page)
 
             #
-            # ONLY PROCESS THE FIRST JOB FOR NOW
+            # TEST MODE
+            # Change [:1] to [:] when ready
             #
-
             for job in jobs[:1]:
-
                 self.migrate_job(job)
+
+            self.stats.print_summary()
 
         finally:
 

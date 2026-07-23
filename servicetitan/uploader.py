@@ -9,18 +9,27 @@ class Uploader:
 
     def attachment_exists(self, filename: str) -> bool:
 
-        titles = self.page.locator(
-            ".qa-attachments-table-column-Title"
-        )
+        try:
 
-        target = filename.lower()
+            titles = self.page.locator(
+                ".qa-attachments-table-column-Title"
+            )
 
-        for i in range(titles.count()):
+            target = filename.lower()
 
-            existing = titles.nth(i).inner_text().strip().lower()
+            for i in range(titles.count()):
 
-            if existing == target:
-                return True
+                existing = titles.nth(i).inner_text().strip().lower()
+
+                if existing == target:
+                    return True
+
+        except Exception:
+
+            #
+            # Attachment table isn't available yet.
+            #
+            return False
 
         return False
 
@@ -50,15 +59,21 @@ class Uploader:
 
             print(f"\nUploading:\n{file_path}")
 
-            upload.set_input_files(file_path)
+            try:
 
-            print("Waiting for upload...")
+                upload.set_input_files(file_path)
 
-            self.page.wait_for_timeout(3000)
+                print("Waiting for upload...")
 
-            uploaded.append(file)
+                self.page.wait_for_timeout(3000)
 
-        print("Finished uploading.")
+                uploaded.append(file)
+
+            except Exception as e:
+
+                print(f"Failed: {file.name}")
+
+                print(e)        print("Finished uploading.")
 
         return uploaded, skipped
 

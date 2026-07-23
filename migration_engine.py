@@ -14,6 +14,8 @@ class MigrationEngine:
 
         self.logger = MigrationLogger()
         self.stats = MigrationStats()
+        self.current_job = None
+        self.current_customer = None
 
     def migrate_job(self, job):
 
@@ -28,7 +30,14 @@ class MigrationEngine:
         #
         # Try opening the job first
         #
-        if self.job_search.open_job(job.job_number):
+        if self.current_job != job.job_number:
+
+            if self.job_search.open_job(job.job_number):
+                self.current_job = job.job_number
+            else:
+                self.current_job = None
+
+        if self.current_job == job.job_number:
 
             print("Uploading to job...")
 
@@ -63,7 +72,14 @@ class MigrationEngine:
         #
         print("Job not found.")
 
-        if self.customer_search.open_customer(job.legacy_id):
+        if self.current_customer != job.legacy_id:
+
+            if self.customer_search.open_customer(job.legacy_id):
+                self.current_customer = job.legacy_id
+            else:
+                self.current_customer = None
+
+        if self.current_customer == job.legacy_id:
 
             print("Uploading to customer...")
 
@@ -137,9 +153,7 @@ class MigrationEngine:
             # TEST MODE
             # Change [:1] to [:] when ready
             #
-            for job in jobs[:1]:
-                self.migrate_job(job)
-
+            for job in jobs[:1]
             self.stats.print_summary()
 
         finally:

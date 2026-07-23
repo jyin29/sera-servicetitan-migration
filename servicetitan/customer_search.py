@@ -1,4 +1,4 @@
-from playwright.sync_api import Page
+from playwright.sync_api import Page, TimeoutError
 
 
 class CustomerSearcher:
@@ -6,21 +6,43 @@ class CustomerSearcher:
     def __init__(self, page: Page):
         self.page = page
 
-    def open_customer(self, legacy_id: str):
+    def open_customer(self, legacy_id: str) -> bool:
 
         print(f"\nSearching for customer {legacy_id}...")
 
-        # Open Global Search
         self.page.keyboard.press("Control+/")
-        self.page.wait_for_timeout(600)
 
-        # Search box receives focus automatically
-        self.page.keyboard.press("Control+A")
-        self.page.keyboard.press("Backspace")
+        search = self.page.locator(
+            'input[data-fs-element="Global Search - Form | Basic Search Field"]'
+        )
 
-        self.page.keyboard.type(str(legacy_id), delay=30)
+        search.wait_for(state="visible", timeout=10000)
 
-        self.page.wait_for_timeout(1500)
+        search.click()
+
+        #
+        # fill() clears automatically
+        #
+        search.fill(str(legacy_id))
+
+        try:
+
+            self.page.wait_for_function(
+                """
+                () => document.querySelectorAll(
+                    'a[data-fs-entity-type="Customer"]'
+                ).length > 0
+                """,
+                timeout=5000
+            )
+
+        except TimeoutError:
+
+            print("No customer results.")
+
+            self.page.keyboard.press("Escape")
+
+            return False
 
         customers = self.page.locator(
             'a[data-fs-entity-type="Customer"]'
@@ -29,16 +51,18 @@ class CustomerSearcher:
         print("Customer results:", customers.count())
 
         if customers.count() == 0:
-            raise Exception("Customer not found.")
+
+            self.page.keyboard.press("Escape")
+
             return False
 
         customers.first.click()
 
         try:
             self.page.wait_for_url("**/customer/**", timeout=10000)
-        except:
-            self.page.wait_for_timeout(1500)
+        except TimeoutError:
+            self.page.wait_for_timeout(1000)
 
-        print("Customer opened.")
+        self.page.keyboard.press("Escape")
 
         return True

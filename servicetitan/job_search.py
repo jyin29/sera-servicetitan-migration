@@ -1,4 +1,4 @@
-from playwright.sync_api import Page
+from playwright.sync_api import Page, TimeoutError
 
 
 class JobSearcher:
@@ -10,15 +10,47 @@ class JobSearcher:
 
         print(f"\nSearching for job {job_number}...")
 
+        #
+        # Open global search
+        #
         self.page.keyboard.press("Control+/")
-        self.page.wait_for_timeout(500)
 
-        self.page.keyboard.press("Control+A")
-        self.page.keyboard.press("Backspace")
+        #
+        # Wait for the search box
+        #
+        search = self.page.locator(
+            'input[data-fs-element="Global Search - Form | Basic Search Field"]'
+        )
 
-        self.page.keyboard.type(str(job_number), delay=25)
+        search.wait_for(state="visible", timeout=10000)
 
-        self.page.wait_for_timeout(1500)
+        #
+        # Search
+        #
+        search.click()
+        search.fill(str(job_number))
+
+        #
+        # Wait for results
+        #
+        try:
+
+            self.page.wait_for_function(
+                """
+                () => document.querySelectorAll(
+                    'a[data-fs-entity-type="Job"]'
+                ).length > 0
+                """,
+                timeout=5000
+            )
+
+        except TimeoutError:
+
+            print("No job results.")
+
+            self.page.keyboard.press("Escape")
+
+            return False
 
         jobs = self.page.locator(
             'a[data-fs-entity-type="Job"]'
@@ -30,20 +62,33 @@ class JobSearcher:
 
             job = jobs.nth(i)
 
-            text = job.inner_text()
+            text = job.inner_text().strip()
 
             print("Candidate:", text)
 
-            if f"Job #{job_number}" in text:
+            if text == f"Job #{job_number}":
 
                 print("Exact match found.")
 
                 job.click()
 
-                self.page.wait_for_timeout(1500)
+                try:
+                    self.page.wait_for_url(
+                        "**/Job/**",
+                        timeout=10000
+                    )
+                except TimeoutError:
+                    self.page.wait_for_timeout(1000)
+
+                #
+                # Close the search overlay if it's still open
+                #
+                self.page.keyboard.press("Escape")
 
                 return True
 
         print("Exact job not found.")
+
+        self.page.keyboard.press("Escape")
 
         return False

@@ -1,6 +1,7 @@
 from openpyxl import load_workbook
+from pathlib import Path
 
-path = r"C:\Users\melis\sera-migration\CustomerContactReport-2026-07-22-58a68e.xlsx"
+path = Path("exports") / "CustomerContactReport-2026-07-22-58a68e.xlsx"
 
 print("Opening:", path)
 

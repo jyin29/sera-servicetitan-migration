@@ -10,7 +10,7 @@ import re
 # SETTINGS
 # ============================================================
 
-EXCEL_FILE = r"C:\Users\melis\sera-migration\CustomerContactReport-2026-07-22-58a68e.xlsx"
+EXCEL_FILE = Path("exports") / "CustomerContactReport-2026-07-22-58a68e.xlsx"
 
 BASE_URL = "https://grmetro.sera.tech/customers"
 

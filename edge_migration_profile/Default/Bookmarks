@@ -1,0 +1,128 @@
+{
+   "checksum": "0266630b91f223dd5d44a27b3d34aef1",
+   "roots": {
+      "bookmark_bar": {
+         "children": [ {
+            "date_added": "13399062720426879",
+            "date_last_used": "0",
+            "guid": "e76e5e38-7dec-480d-98cb-93b096e6735c",
+            "id": "10",
+            "name": "less than sign - Google Search",
+            "show_icon": false,
+            "source": "sync",
+            "type": "url",
+            "url": "https://www.google.com/search?q=less+than+sign&sca_esv=84a972cf9bb6250a&sxsrf=AE3TifPQgCvipzjf8nFlpVWb6iZqXRG6NQ%3A1754588870345&source=hp&ei=xuaUaMa5EtbLwN4Pws2cyAo&iflsig=AOw8s4IAAAAAaJT01oHgRSXAppB0tIzjTQCDkRhlcYq1&ved=0ahUKEwjGtN3yoPmOAxXWJdAFHcImB6kQ4dUDCBo&uact=5&oq=less+than+sign&gs_lp=Egdnd3Mtd2l6Ig5sZXNzIHRoYW4gc2lnbjIIEAAYgAQYsQMyBRAAGIAEMgUQABiABDIFEAAYgAQyBRAAGIAEMgUQABiABDIFEAAYgAQyBRAAGIAEMgUQABiABDIFEAAYgARIiRBQAFiIDnAAeACQAQCYAYcBoAH4CaoBAzkuNbgBA8gBAPgBAZgCDqACrArCAgQQIxgnwgIQEC4YgAQY0QMYxwEYJxiKBcICChAjGIAEGCcYigXCAg4QLhiABBixAxjRAxjHAcICCBAuGIAEGLEDwgIREC4YgAQYsQMY0QMYgwEYxwHCAgsQABiABBixAxiDAcICBBAAGAPCAg4QLhiABBixAxiDARiKBcICDhAAGIAEGLEDGIMBGIoFwgILEC4YgAQYxwEYrwHCAg4QLhiABBixAxiDARjUAsICCxAuGIAEGLEDGIMBmAMAkgcDOC42oAeLlQGyBwM4Lja4B6wKwgcFMC43LjfIByo&sclient=gws-wiz",
+            "visit_count": 1
+         }, {
+            "date_added": "13429195299632968",
+            "date_last_used": "0",
+            "guid": "19be4489-d8cf-48dd-9d64-0bb7db291cfc",
+            "id": "11",
+            "name": "Sera Admin",
+            "show_icon": false,
+            "source": "sync",
+            "type": "url",
+            "url": "https://grmetro.sera.tech/admins/login",
+            "visit_count": 1
+         }, {
+            "date_added": "13429229844999542",
+            "date_last_used": "0",
+            "guid": "2f0ad452-d67c-44f4-af05-7ff2954034be",
+            "id": "12",
+            "name": "work email",
+            "show_icon": false,
+            "source": "sync",
+            "type": "url",
+            "url": "https://box5139.bluehost.com:2096/cpsess4365613614/3rdparty/roundcube/?_task=mail&_mbox=INBOX",
+            "visit_count": 1
+         }, {
+            "date_added": "13429291596834943",
+            "date_last_used": "13429293367415037",
+            "guid": "9e10345b-d848-4fa3-8780-8a90e78a71cd",
+            "id": "13",
+            "name": "chat",
+            "show_icon": false,
+            "source": "sync",
+            "type": "url",
+            "url": "https://chatgpt.com/c/6a60cac3-4a7c-83ea-95dc-47dd26e677a3",
+            "visit_count": 7
+         }, {
+            "date_added": "13429293776180974",
+            "date_last_used": "0",
+            "guid": "9322bfae-38a6-4922-8238-93b4751c1271",
+            "id": "9",
+            "name": "McAfee Security",
+            "show_icon": false,
+            "source": "oem_preload",
+            "type": "url",
+            "url": "https://www.mcafee.com/consumer/v/browserfav/hp.html",
+            "visit_count": 0
+         }, {
+            "date_added": "13429293776180090",
+            "date_last_used": "0",
+            "guid": "ab2a1c82-846a-40d1-8e83-6a1f151bb3bf",
+            "id": "8",
+            "name": "Adobe offers",
+            "show_icon": false,
+            "source": "oem_preload",
+            "type": "url",
+            "url": "https://js.redirect.hp.com/jumpstation?c=242&type=107EF_NW&RedeemCode=WZAc2ZUsdHuaqI8%2fbAWoEFjq8hFhegxKwWgiurlQMGnjI4hIMAY0jpElK3VO7fFGsvdEw8bbMph2yBcmJO8slqQ3sYd27xlEdxnR0UJbPhv%2fgcn2AHNgbFXB3jxr6hqg0iwKPVDomaCs1rH2sG3hGvupAgiUbV%2fr%2fZe0UN%2bhGCE%3d",
+            "visit_count": 0
+         }, {
+            "date_added": "13429293776179027",
+            "date_last_used": "0",
+            "guid": "770e405d-c330-4bac-ba3f-2e5adaa360ff",
+            "id": "7",
+            "name": "Otter.ai",
+            "show_icon": false,
+            "source": "oem_preload",
+            "type": "url",
+            "url": "https://js.redirect.hp.com/jumpstation?bd=OtterAIProduction&c=242&tp=edge&redeemcode=amwvtjdvuFFmXoJENtFRWOtcYPPt53iMydAbw5MYfwAcWgJhhOan8Qw0nsJhG5%252fmA614r99L5%252bO36LPeFcgsug55p1Y9lokT6iNkCxzjFuGuyOuxb5H%252bmwtXvUWq%252fSvbb%252bafdEwPY3pkCSS5%252bQdQ1%252bhdFcoWIW8QZycGiWM4jPg%253d",
+            "visit_count": 0
+         } ],
+         "date_added": "13429293775911913",
+         "date_last_used": "0",
+         "date_modified": "13429293776180974",
+         "guid": "0bc5d13f-2cba-5d74-951f-3f233fe6c908",
+         "id": "1",
+         "name": "Favorites bar",
+         "source": "unknown",
+         "type": "folder"
+      },
+      "other": {
+         "children": [  ],
+         "date_added": "13429293775911913",
+         "date_last_used": "0",
+         "date_modified": "0",
+         "guid": "82b081ec-3dd3-529c-8475-ab6c344590dd",
+         "id": "2",
+         "name": "Other favorites",
+         "source": "unknown",
+         "type": "folder"
+      },
+      "synced": {
+         "children": [  ],
+         "date_added": "13429293775911913",
+         "date_last_used": "0",
+         "date_modified": "0",
+         "guid": "4cf2e351-0e85-532b-bb37-df045d8f8d0f",
+         "id": "3",
+         "name": "Mobile favorites",
+         "source": "unknown",
+         "type": "folder"
+      },
+      "workspaces_v2": {
+         "children": [  ],
+         "date_added": "13429293775911913",
+         "date_last_used": "0",
+         "date_modified": "0",
+         "guid": "75aa6670-344f-549d-b742-660f029506ab",
+         "id": "5",
+         "name": "Workspaces",
+         "source": "unknown",
+         "type": "folder"
+      }
+   },
+   "sync_metadata": "CjEKDgiIgQISCAyOkI+fAQAAEgAqGHpETjlpekt5SGxVOEFyYXNzWEVrdlE9PUgDoAYKEo4BCAMSiQEKHG5qZ0R1ODhlQ3J2WHA4NnBEN2ZIR2NxRnA4OD0SJDZlZTNjOTM4LTY1OGEtNTFjNC05YzM4LTRkYTcyNTQ2YTVmMBgAIAAoADDG+5CqiDM4s4CRqogzQLOAkaqIM0oceXpOQjAxY241NEE3Y1JVMHVUKy9QZ21UdFVvPVoAZQAAAADCPgJgABKOAQgFEokBChx3UkJyWkwrNlBBOWF2S2dqTlA3SlhETGNmdnM9EiQ5ZGU2MDcxNS1hNjJlLTVjOWQtYWY0YS1jNzc4MDhhZWQyZTMYACAAKAAwqbul8eEzOMu8pfHhM0DLvKXx4TNKHG5teDY1c1FEdnhJOFRnRWV2K0ErbnR0b1NuND1aAGUAAAAAwj4CYAASjgEIAhKJAQocWWNTVG9udkVTUHdxQ3M0TDJjclZodjY4TDk4PRIkODFjNDU4MzAtM2JiYi01NzNmLTg4MWEtZmZjNjYxOWZkMGFhGAAgACgAMMH7kKqIMzjy/5CqiDNA8v+QqogzShxvUFZraHdCUmJWNjVLQ1dSMitJT05IV29PdTg9WgBlAAAAAMI+AmAAEq0BCAwSqAEKHFdybWVrb1NsWksyY0tVZk82YjFUTkt0UUpQND0SJDJmMGFkNDUyLWQ2N2MtNDRmNC1hZjA1LTdmZjI5NTQwMzRiZRgAIAAoADCRy4ze+DM4tceM3vgzQLXHjN74M0ocUFhENjZtWHg2WTJVRllSbjJFMU1Ha1orWDFvPVofIh26ZElPZEptYjJiOUxFRitWYzF4bW5UTmhlOE9NPWXfPLCWwj4CYAUSrQEIDRKoAQocazkxRFZtNDZ5Ri95K2NLd01LcnlmRlF0RndFPRIkOWUxMDM0NWItZDg0OC00ZmEzLTg3ODAtOGE5MGU3OGE3MWNkGAAgACgAMJHCsfz4MzjZucX7+DNA2bnF+/gzShxpZ29GYUZ3MlVUWDA4R3Uya05OWjNOUkRtSlk9Wh8iHd1DUWVGQXFrT0hGdnJiU3pTUC9wTi9qY3dUOVU9ZYal2MjCPgJgBRKsAQgLEqcBChx0bUZub3R1THlPOWdHdUlWK2ljL2xmRTl1TGM9EiQxOWJlNDQ4OS1kOGNmLTQ4ZGQtOWQ2NC0wYmI3ZGIyOTFjZmMYACAAKAAw5PbPzfgzOM38z834M0DN/M/N+DNKHFAvUlFpTDJpT0xoNVJpOWNHaHNUTEhrb1drQT1aHiIcdTUrVUJFanIrZG1WRHRiQVZmUUhYTklUSkNrPWXtwHHFwj4CYAUSrAEIChKnAQocamV6QU5yUzZKekhycjdtSndRK09qVTFJcU5NPRIkZTc2ZTVlMzgtN2RlYy00ODBkLTk4Y2ItOTNiMDk2ZTY3MzVjGAAgACgAMOH/3fGNMzjcn6WtiDNA3J+lrYgzShxqb2dqaHZuTkdxakJKZ01nWTdUWUtSYlRyaE09Wh4iHGZGWHpGa2FDVmdkK3BTK0tvckJranFXUTFLTT1lYumyScI+AmAFEo4BCAESiQEKHHl4Si82ZnZrZWNyN2twNUVRekI0dFdMcGRiRT0SJDYxNjg5OTIxLTBkNzEtNTVjOC04YTE3LTY1ZjNkNGVjNzA5YRgAIAAoADDA+5CqiDM40P+QqogzQND/kKqIM0ocYVJDV0xnaEY5YjVJbnFLSUR2dUovanZRa0ZjPVoAZQAAAADCPgJgADAAOAA=",
+   "version": 1
+}

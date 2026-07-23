@@ -1,36 +1,28 @@
-from servicetitan.browser import launch
+from servicetitan.browser import connect
 from servicetitan.customer_search import CustomerSearcher
+from servicetitan.job_search import JobSearcher
+from servicetitan.uploader import Uploader
 
 
 print("Connecting to Edge...")
 
-p, browser, context = launch()
-
-print("connected!")
+p, browser, context = connect()
 
 try:
 
-    if context.pages:
+    page = context.pages[0]
 
-        page = context.pages[0]
-
-    else:
-
-        page = context.new_page()
-
-    print("Current URL:", page.url)
-
-    if page.url == "about:blank":
-
-        page.goto("https://go.servicetitan.com")
-
-    input(
-        "When you're on the ServiceTitan dashboard, press ENTER..."
-    )
+    print("Connected!")
+    print(page.url)
 
     CustomerSearcher(page).open_customer("843598")
+    JobSearcher(page).open_job("1100786")
 
-    input("Press ENTER to exit...")
+    Uploader(page).upload(
+        r"C:\Users\melis\sera-migration\sera_media\Customer_843598\Job_1100786\invoice_1040003_signed_2022-02-17.pdf"
+    )
+
+    input("\nPress ENTER...")
 
 finally:
 

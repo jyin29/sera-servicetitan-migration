@@ -1,35 +1,27 @@
 from pathlib import Path
+from playwright.sync_api import Page
 
 
-class ServiceTitanUploader:
+class Uploader:
 
-    def __init__(self, page):
-
+    def __init__(self, page: Page):
         self.page = page
 
-    def upload_job(self, job_number, files):
+    def upload(self, file_path):
 
-        print()
-        print("=" * 60)
-        print(f"Uploading Job {job_number}")
-        print("=" * 60)
+        file_path = str(Path(file_path).resolve())
 
-        print(f"{len(files)} files")
+        print(f"\nUploading {file_path}")
 
-        for file in files:
+        upload = self.page.locator(
+            "#job-upload-attachment-btn input[type=file]"
+        )
 
-            print("   ", Path(file).name)
+        upload.set_input_files(file_path)
 
-        #
-        # Search job
-        #
-        # (We'll implement this after your ST login works.)
-        #
+        print("File selected.")
 
-        #
-        # Upload files
-        #
-        # (We'll implement this after the search works.)
-        #
+        # Give ServiceTitan time to upload
+        self.page.wait_for_timeout(5000)
 
-        print("Finished.")
+        print("Upload complete (hopefully 😄)")

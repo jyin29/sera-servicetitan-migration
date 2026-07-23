@@ -1,7 +1,7 @@
 from playwright.sync_api import sync_playwright
 
 
-def launch():
+def connect():
 
     p = sync_playwright().start()
 
@@ -11,4 +11,4 @@ def launch():
 
     context = browser.contexts[0]
 
-    return p, browser, context        
+    return p, browser, context

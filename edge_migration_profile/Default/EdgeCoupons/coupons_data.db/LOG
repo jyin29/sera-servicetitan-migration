@@ -1,0 +1,5 @@
+2026/07/23-11:22:58.967 7884 Creating DB C:\Users\melis\OneDrive\Documents\GitHub\sera-servicetitan-migration\edge_migration_profile\Default\EdgeCoupons/coupons_data.db since it was missing.
+2026/07/23-11:22:58.992 7884 Reusing MANIFEST C:\Users\melis\OneDrive\Documents\GitHub\sera-servicetitan-migration\edge_migration_profile\Default\EdgeCoupons/coupons_data.db/MANIFEST-000001
+2026/07/23-11:23:05.021 65ac Level-0 table #5: started
+2026/07/23-11:23:05.029 65ac Level-0 table #5: 683052 bytes OK
+2026/07/23-11:23:05.030 65ac Delete type=0 #3

@@ -30,6 +30,7 @@ class CustomerSearcher:
 
         if customers.count() == 0:
             raise Exception("Customer not found.")
+            return False
 
         customers.first.click()
 
@@ -37,4 +38,7 @@ class CustomerSearcher:
             self.page.wait_for_url("**/customer/**", timeout=10000)
         except:
             self.page.wait_for_timeout(1500)
+
         print("Customer opened.")
+
+        return True

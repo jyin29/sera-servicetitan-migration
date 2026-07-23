@@ -1,21 +1,18 @@
-from sera.media_inventory import MediaInventory
+from inventory import Inventory
 
-inventory = MediaInventory("sera_media")
+inventory = Inventory()
 
-customers = inventory.load()
+jobs = inventory.build("sera_media")
 
-print("=" * 60)
-print(f"Customers found: {len(customers)}")
-print("=" * 60)
+print()
 
-for customer in customers:
+print(f"Found {len(jobs)} jobs")
 
-    print(f"\nLegacy Customer: {customer['legacy_id']}")
+print()
 
-    for job in customer["jobs"]:
-
-        print(f"   Job: {job['job_number']}")
-
-        for file in job["files"]:
-
-            print(f"      {file.name}")
+for job in jobs:
+    print(
+        f"Job {job.job_number} | "
+        f"Legacy {job.legacy_id} | "
+        f"{job.file_count} files"
+    )

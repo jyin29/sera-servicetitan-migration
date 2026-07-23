@@ -7,21 +7,33 @@ class Uploader:
     def __init__(self, page: Page):
         self.page = page
 
-    def upload(self, file_path):
+    def upload_to_customer(self, files):
 
-        file_path = str(Path(file_path).resolve())
-
-        print(f"\nUploading {file_path}")
+        print("Locating upload input...")
 
         upload = self.page.locator(
-            "#job-upload-attachment-btn input[type=file]"
+            '[data-tracking-id="crm-customer-add-attachment-button"] + input[type=file]'
         )
 
-        upload.set_input_files(file_path)
+        print("Matching inputs:", upload.count())
 
-        print("File selected.")
+        upload.wait_for(
+            state="attached",
+            timeout=10000
+        )
 
-        # Give ServiceTitan time to upload
-        self.page.wait_for_timeout(5000)
+        print("Upload input found.")
 
-        print("Upload complete (hopefully 😄)")
+        for file in files:
+
+            file_path = str(Path(file).resolve())
+
+            print(f"\nUploading:\n{file_path}")
+
+            upload.set_input_files(file_path)
+
+            print("Waiting 3 seconds...")
+
+            self.page.wait_for_timeout(3000)
+
+        print("Finished uploading customer.")

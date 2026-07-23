@@ -1,82 +1,94 @@
-from sera.media_inventory import MediaInventory
-from database.customer_lookup import CustomerLookup
-from pathlib import Path
+from inventory import Inventory
+from logger import MigrationLogger
+
+from servicetitan.browser import connect
+from servicetitan.job_search import JobSearcher
+from servicetitan.customer_search import CustomerSearcher
+from servicetitan.uploader import Uploader
 
 
 class MigrationEngine:
 
     def __init__(self):
+        self.logger = MigrationLogger()
 
-        self.inventory = MediaInventory(
-            "sera_media"
-        )
+    def migrate_job(self, job):
 
-        self.lookup = CustomerLookup(
-            Path("exports") / "ServiceTitanJobsExport.xlsx"
-        )
+        print()
+        print("=" * 60)
+        print(f"Job: {job.job_number}")
+        print(f"Legacy ID: {job.legacy_id}")
+        print(f"Files: {job.file_count}")
+
+        #
+        # TEMPORARY: Force customer upload for testing.
+        # Once customer upload works, we'll change this back.
+        #
+
+        print("Job not found.")
+
+        if self.customer_search.open_customer(job.legacy_id):
+
+            print("Uploading to customer...")
+
+            self.uploader.upload_to_customer(job.files)
+
+            for file in job.files:
+                self.logger.log(
+                    job.legacy_id,
+                    job.job_number,
+                    file.name,
+                    "SUCCESS",
+                    "CUSTOMER",
+                    "Job not found"
+                )
+
+            return
+
+        print("FAILED")
+
+        for file in job.files:
+            self.logger.log(
+                job.legacy_id,
+                job.job_number,
+                file.name,
+                "FAILED",
+                "",
+                "Customer not found"
+            )
 
     def run(self):
 
-        customers = self.inventory.load()
+        print("Building inventory...")
 
-        print("=" * 60)
-        print("Migration")
-        print("=" * 60)
+        inventory = Inventory()
+        jobs = inventory.build("sera_media")
 
-        for customer in customers:
+        print(f"Found {len(jobs)} jobs.")
 
-            print()
-            print(f"Customer {customer['legacy_id']}")
+        print("Connecting to Edge...")
+        p, browser, context = connect()
+        print("Connected.")
 
-            matches = self.lookup.find(
-                customer["legacy_id"]
-            )
+        try:
 
-            if not matches:
+            print("Getting page...")
+            page = context.pages[0]
+            print("Got page.")
 
-                print("No ServiceTitan customer.")
-                continue
+            self.job_search = JobSearcher(page)
+            self.customer_search = CustomerSearcher(page)
+            self.uploader = Uploader(page)
 
-            print(
-                f"{len(matches)} matching jobs"
-            )
+            #
+            # ONLY PROCESS THE FIRST JOB FOR NOW
+            #
 
-            for job in customer["jobs"]:
+            for job in jobs[:1]:
 
-                print()
+                self.migrate_job(job)
 
-                print(
-                    f"Job {job['job_number']}"
-                )
+        finally:
 
-                found = False
-
-                for st_job in matches:
-
-                    if (
-                        st_job["job_number"]
-                        ==
-                        job["job_number"]
-                    ):
-
-                        found = True
-
-                        print(
-                            "Matched ServiceTitan Job"
-                        )
-
-                        print(
-                            st_job["customer_name"]
-                        )
-
-                        print(
-                            f"{len(job['files'])} files"
-                        )
-
-                        break
-
-                if not found:
-
-                    print(
-                        "No matching ServiceTitan job."
-                    )
+            browser.close()
+            p.stop()

@@ -10,10 +10,11 @@ p, browser, context = connect()
 
 try:
 
-    page = context.pages[0]
-
     print("Connected!")
-    print(page.url)
+
+    for i, page in enumerate(context.pages):
+        print(f"\nPage {i}:")
+        print(page.url)
 
     CustomerSearcher(page).open_customer("843598")
     JobSearcher(page).open_job("1100786")

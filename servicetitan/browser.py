@@ -1,14 +1,10 @@
-from playwright.sync_api import sync_playwright
+def connect(playwright):
 
-
-def connect():
-
-    p = sync_playwright().start()
-
-    browser = p.chromium.connect_over_cdp(
+    browser = playwright.chromium.connect_over_cdp(
         "http://127.0.0.1:9222"
     )
 
-    context = browser.contexts[0]
+    if not browser.contexts:
+        raise Exception("No Edge contexts found.")
 
-    return p, browser, context
+    return browser, browser.contexts[0]

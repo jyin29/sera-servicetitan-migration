@@ -6,25 +6,43 @@ from servicetitan.uploader import Uploader
 
 class LiveMigration:
 
-    def __init__(self):
+    def __init__(self, playwright):
 
-        self.p, self.browser, self.context = connect()
+        self.browser, self.context = connect(playwright)
 
         #
         # Find the ServiceTitan tab
         #
         self.page = None
 
+        print("\nAvailable Edge tabs:")
+
         for page in self.context.pages:
 
-            if "servicetitan" in page.url.lower():
+            print("  ", page.url)
+
+            url = page.url.lower()
+
+            if (
+                "go.servicetitan.com" in url
+                or
+                "servicetitan" in url
+                or
+                "st-app" in url
+            ):
+
                 self.page = page
+
                 break
 
         if self.page is None:
+
             raise Exception(
                 "Could not find an open ServiceTitan tab."
             )
+
+        print("\nUsing ServiceTitan tab:")
+        print(self.page.url)
 
         self.job_search = JobSearcher(self.page)
         self.customer_search = CustomerSearcher(self.page)
@@ -68,20 +86,6 @@ class LiveMigration:
 
                         print("Upload to Job failed.")
 
-                        if uploaded:
-
-                            print(f"✓ {file_path.name} → Job")
-
-                            return True
-
-                        if skipped:
-
-                            print(f"✓ {file_path.name} already exists on Job")
-
-                            return True
-
-                        print("Upload to Job failed.")
-
                 #
                 # Customer fallback
                 #
@@ -99,20 +103,6 @@ class LiveMigration:
 
                     if skipped:
                         print(f"✓ {file_path.name} already exists on Customer")
-                        return True
-
-                    print("Upload to Customer failed.")
-
-                    if uploaded:
-
-                        print(f"✓ {file_path.name} → Customer")
-
-                        return True
-
-                    if skipped:
-
-                        print(f"✓ {file_path.name} already exists on Customer")
-
                         return True
 
                     print("Upload to Customer failed.")

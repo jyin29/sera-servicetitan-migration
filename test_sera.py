@@ -22,6 +22,10 @@ DOWNLOAD_FOLDER = Path("sera_media")
 
 DOWNLOAD_FOLDER.mkdir(exist_ok=True)
 
+UPLOADED_FOLDER = Path("uploaded_media")
+
+UPLOADED_FOLDER.mkdir(exist_ok=True)
+
 LOG_FILE = Path("download_log.csv")
 
 # TEST FIRST
@@ -199,20 +203,22 @@ def write_log(
 # READ SERA CUSTOMER IDS
 # ============================================================
 
-def run(excel_file=None):
+def run(
+    workbook=None,
+    limit=0
+):
 
     print("Entered run()")
 
     global RUNTIME_EXCEL_FILE
 
-    if excel_file is not None:
-        RUNTIME_EXCEL_FILE = excel_file
+    RUNTIME_EXCEL_FILE = workbook
 
     print("Reading customer list...")
 
     print("Workbook:", RUNTIME_EXCEL_FILE or EXCEL_FILE)
 
-    from pathlib import Path
+    #from pathlib import Path
 
     print("Absolute:", Path(RUNTIME_EXCEL_FILE or EXCEL_FILE).resolve())
 
@@ -257,11 +263,9 @@ def run(excel_file=None):
     )
 
 
-    if TEST_MODE:
+    if limit > 0:
 
-        customer_ids = customer_ids[
-            :TEST_CUSTOMER_COUNT
-        ]
+        customer_ids = customer_ids[:limit]
 
         print(
             f"TEST MODE: Processing "
@@ -309,7 +313,7 @@ def run(excel_file=None):
         # PROCESS CUSTOMERS
         # ========================================================
 
-        migration = LiveMigration()
+        migration = LiveMigration(p)
 
         print("Connected to Sera")
 
@@ -733,8 +737,23 @@ def run(excel_file=None):
                         )
 
                         if success:
-                            print("✓ Uploaded to ServiceTitan")
+
+                            destination = (
+                                UPLOADED_FOLDER
+                                / file_path.relative_to(DOWNLOAD_FOLDER)
+                            )
+
+                            destination.parent.mkdir(
+                                parents=True,
+                                exist_ok=True
+                            )
+
+                            file_path.rename(destination)
+
+                            print(f"✓ Uploaded → {destination}")
+
                         else:
+
                             print("✗ Upload failed")
 
 
@@ -847,13 +866,6 @@ def run(excel_file=None):
             f"Log saved in: "
 
             f"{LOG_FILE.absolute()}"
-
-        )
-
-
-        input(
-
-            "\nPress Enter to close the browser..."
 
         )
 

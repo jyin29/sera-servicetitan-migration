@@ -50,7 +50,7 @@ class MigrationEngine:
 
             print("Uploading to job...")
 
-            uploaded, skipped = self.uploader.upload_to_job(job.files)
+            uploaded, skipped, failed = self.uploader.upload_to_job(job.files)
 
             self.stats.uploaded_files(len(uploaded))
             self.stats.skipped_files(len(skipped))
@@ -92,7 +92,7 @@ class MigrationEngine:
 
             print("Uploading to customer...")
 
-            uploaded, skipped = self.uploader.upload_to_customer(job.files)
+            uploaded, skipped, failed = self.uploader.upload_to_customer(job.files)
 
             self.stats.uploaded_files(len(uploaded))
             self.stats.skipped_files(len(skipped))
@@ -156,12 +156,54 @@ class MigrationEngine:
 
         print("Connecting to Edge...")
         p, browser, context = connect()
+
+        print("=" * 70)
+        print("CONNECTED TO EDGE")
+        print("=" * 70)
+
+        for i, ctx in enumerate(browser.contexts):
+
+            print(f"\nContext {i}")
+
+            for j, page in enumerate(ctx.pages):
+
+                print(f"  Page {j}: {page.url}")
+
         print("Connected.")
 
         try:
 
-            page = context.pages[0]
-            print("Got page.")
+            page = None
+
+            print("\nSearching for ServiceTitan tab...")
+
+            for p in context.pages:
+
+                print("Found:", p.url)
+
+                url = p.url.lower()
+
+                if (
+                    "servicetitan" in url
+                    or
+                    "st-app" in url
+                ):
+
+                    page = p
+
+                    break
+
+            if page is None:
+
+                raise Exception(
+                    "No ServiceTitan tab found.\n"
+                    "Open ServiceTitan in the browser connected to port 9222."
+                )
+
+            print("Using:")
+            print(page.url)
+
+            page.bring_to_front()
 
             self.job_search = JobSearcher(page)
             self.customer_search = CustomerSearcher(page)

@@ -3,7 +3,7 @@ import customtkinter as ctk
 import threading
 import traceback
 from tkinter import filedialog
-from test_sera import run as sera_download
+from test_sera import run
 
 
 
@@ -33,6 +33,67 @@ class MainWindow:
         )
 
         title.pack(pady=30)
+
+        #
+        # Excel workbook
+        #
+        self.excel_path = ctk.StringVar(
+            value="exports/CustomerContactReport.xlsx"
+        )
+
+        excel_frame = ctk.CTkFrame(self.root)
+
+        excel_frame.pack(
+            pady=(0, 20),
+            padx=20,
+            fill="x"
+        )
+
+        ctk.CTkLabel(
+            excel_frame,
+            text="Customer Export"
+        ).pack(
+            side="left",
+            padx=10
+        )
+
+        self.excel_entry = ctk.CTkEntry(
+            excel_frame,
+            textvariable=self.excel_path
+        )
+
+        self.excel_entry.pack(
+            side="left",
+            fill="x",
+            expand=True,
+            padx=10
+        )
+
+        ctk.CTkButton(
+            excel_frame,
+            text="Browse",
+            width=90,
+            command=self.pick_excel
+        ).pack(
+            side="right",
+            padx=10
+        )
+
+        self.limit_label = ctk.CTkLabel(
+            self.root,
+            text="Customers to Process (0 = All)"
+        )
+
+        self.limit_label.pack()
+
+        self.limit_entry = ctk.CTkEntry(
+            self.root,
+            width=120
+        )
+
+        self.limit_entry.insert(0, "1")
+
+        self.limit_entry.pack(pady=(0, 20))
 
         self.start_button = ctk.CTkButton(
             self.root,
@@ -148,6 +209,24 @@ class MainWindow:
 
         self.log.configure(state="disabled")
 
+    def pick_excel(self):
+
+        filename = filedialog.askopenfilename(
+
+            title="Select Customer Export",
+
+            filetypes=[
+                (
+                    "Excel Workbook",
+                    "*.xlsx"
+                )
+            ]
+        )
+
+        if filename:
+
+            self.excel_path.set(filename)
+
     def set_status(self, text):
 
         self.root.after(
@@ -201,6 +280,10 @@ class MainWindow:
 
         self.write("Starting Sera downloader...\n")
 
+        self.download_button.configure(
+            state="disabled"
+        )
+
         thread = threading.Thread(
             target=self.run_downloader,
             daemon=True
@@ -214,7 +297,15 @@ class MainWindow:
 
         try:
 
-            sera_download()
+            limit = int(self.limit_entry.get())
+
+            run(
+
+                workbook=self.excel_path.get(),
+
+                limit=limit
+
+            )
 
             print("\nDownload complete.")
 
@@ -225,6 +316,13 @@ class MainWindow:
         finally:
 
             self.stdout.stop()
+
+            self.root.after(
+                0,
+                lambda: self.download_button.configure(
+                    state="normal"
+                )
+            )
 
     def run_full_migration(self):
 
@@ -297,5 +395,12 @@ class MainWindow:
 
             self.stdout.stop()
 
-    def run(self):
+    def run(
+
+            workbook=None,
+
+            limit=0
+
+        ):
+        
         self.root.mainloop()

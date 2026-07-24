@@ -9,23 +9,25 @@ class Uploader:
 
     def attachment_exists(self, filename: str) -> bool:
 
-        try:
+        titles = self.page.locator(".qa-title")
 
-            titles = self.page.locator(
-                ".qa-attachments-table-column-Title"
+        #print(f"Found {titles.count()} attachment titles")
+
+        target = Path(filename).stem.lower()
+
+        for i in range(titles.count()):
+
+            existing = (
+                titles.nth(i)
+                .inner_text()
+                .strip()
+                .lower()
             )
 
-            target = filename.lower()
+            #print(f"Existing: {existing}")
 
-            for i in range(titles.count()):
-
-                existing = titles.nth(i).inner_text().strip().lower()
-
-                if existing == target:
-                    return True
-
-        except Exception:
-            return False
+            if target in existing:
+                return True
 
         return False
 
@@ -41,18 +43,28 @@ class Uploader:
 
     def wait_for_new_attachment(
         self,
-        previous_count: int,
+        filename: str,
         timeout: int = 30000
-    ) -> bool:
+    ):
 
-        end_time = self.page.evaluate("Date.now()") + timeout
+        end = self.page.evaluate("Date.now()") + timeout
 
-        while self.page.evaluate("Date.now()") < end_time:
+        while self.page.evaluate("Date.now()") < end:
 
-            if self.attachment_count() > previous_count:
+            #
+            # Refresh the page so the attachment list updates.
+            #
+            self.page.reload(wait_until="domcontentloaded")
+
+            self.page.wait_for_timeout(1500)
+
+            if self.attachment_exists(filename):
+
+                print("Attachment found.")
+
                 return True
 
-            self.page.wait_for_timeout(500)
+            self.page.wait_for_timeout(1000)
 
         return False
 
@@ -97,39 +109,44 @@ class Uploader:
                     if attempt:
                         print("Retrying upload...")
 
-                    before = self.attachment_count()
-
                     if not upload.is_enabled():
                         raise Exception(
                             "Upload input is disabled."
                         )
 
-                    upload.set_input_files(file_path)
+                    #
+                    # Upload the file
+                    #
+                    print("Uploading...")
 
-                    print("Waiting for upload...")
+                    with self.page.expect_response(
+                        lambda r: (
+                            "AddAttachment" in r.url
+                            and r.ok
+                        ),
+                        timeout=30000
+                    ) as response_info:
 
-                    if self.wait_for_new_attachment(before):
+                        upload.set_input_files(file_path)
 
-                        url = self.page.url.lower()
+                    response = response_info.value
 
-                        if (
-                            "job" not in url
-                            and
-                            "customer" not in url
-                        ):
-                            raise Exception(
-                                f"Unexpected page: {self.page.url}"
-                            )
+                    print(f"Upload response: {response.status} {response.url}")
 
-                        print("Upload complete.")
+                    try:
+                        print(response.text()[:500])
+                    except:
+                        pass
 
-                        uploaded.append(file)
+                    print(f"Upload response: {response.status}")
 
-                        success = True
+                    print("Upload complete.")
 
-                        break
+                    uploaded.append(file)
 
-                    print("Upload timed out.")
+                    success = True
+
+                    break
 
                 except Exception as e:
 

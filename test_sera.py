@@ -1,9 +1,13 @@
+from live_migration import LiveMigration
 from playwright.sync_api import sync_playwright
 from pathlib import Path
 from openpyxl import load_workbook
 import csv
 import time
 import re
+
+
+print("Starting test_sera...")
 
 
 # ============================================================
@@ -23,7 +27,7 @@ LOG_FILE = Path("download_log.csv")
 # TEST FIRST
 TEST_MODE = True
 
-TEST_CUSTOMER_COUNT = 5
+TEST_CUSTOMER_COUNT = 1
 
 RUNTIME_EXCEL_FILE = None
 
@@ -197,6 +201,8 @@ def write_log(
 
 def run(excel_file=None):
 
+    print("Entered run()")
+
     global RUNTIME_EXCEL_FILE
 
     if excel_file is not None:
@@ -303,6 +309,10 @@ def run(excel_file=None):
         # PROCESS CUSTOMERS
         # ========================================================
 
+        migration = LiveMigration()
+
+        print("Connected to Sera")
+
         for customer_number, customer_id in enumerate(
 
             customer_ids,
@@ -384,9 +394,10 @@ def run(excel_file=None):
 
 
                 for image_number in range(
-
-                    image_count
-
+                    min(
+                        image_count,
+                        2
+                    )
                 ):
 
                     filename = ""
@@ -715,6 +726,17 @@ def run(excel_file=None):
 
                         )
 
+                        success = migration.migrate_file(
+                            customer_id,
+                            job_number,
+                            file_path
+                        )
+
+                        if success:
+                            print("✓ Uploaded to ServiceTitan")
+                        else:
+                            print("✗ Upload failed")
+
 
                         print(
 
@@ -835,7 +857,9 @@ def run(excel_file=None):
 
         )
 
-        if __name__ == "__main__":
-            run()
+        #migration.close()
 
         context.close()
+
+if __name__ == "__main__":
+    run()

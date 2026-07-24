@@ -1,11 +1,14 @@
 from inventory import Inventory
 from logger import MigrationLogger
 from stats import MigrationStats
+from resume import ResumeTracker
 
 from servicetitan.browser import connect
 from servicetitan.job_search import JobSearcher
 from servicetitan.customer_search import CustomerSearcher
 from servicetitan.uploader import Uploader
+
+from sera.downloader import SeraDownloader
 
 
 class MigrationEngine:
@@ -18,6 +21,12 @@ class MigrationEngine:
         self.current_customer = None
 
     def migrate_job(self, job):
+
+        if not job.files:
+
+            print("No files.")
+
+            return
 
         self.stats.job()
 
@@ -127,12 +136,21 @@ class MigrationEngine:
                 "Customer not found"
             )
 
-    def run(self):
+    def run(self, limit = 0):
 
         print("Building inventory...")
 
         inventory = Inventory()
         jobs = inventory.build("sera_media")
+
+        total_jobs = len(jobs)
+        completed_jobs = 0
+
+        tracker = ResumeTracker()
+
+        last_job = tracker.load()
+
+        resume = last_job is None
 
         print(f"Found {len(jobs)} jobs.")
 
@@ -153,10 +171,76 @@ class MigrationEngine:
             # TEST MODE
             # Change [:1] to [:] when ready
             #
-            for job in jobs[:1]
+            tracker = ResumeTracker()
+
+            last_job = tracker.load()
+
+            resume = last_job is None
+            skip_current = last_job is not None
+
+            try:
+
+                if limit:
+
+                    jobs = jobs[:limit]
+
+                for job in jobs:
+
+                    #
+                    # Skip until we reach the last completed job
+                    #
+                    if not resume:
+
+                        if job.job_number == last_job:
+                            resume = True
+
+                        continue
+
+                    #
+                    # Skip the job we already finished
+                    #
+                    if skip_current:
+
+                        skip_current = False
+
+                        continue
+
+
+                    print()
+                    print("=" * 70)
+                    print(f"Job {completed_jobs + 1} of {total_jobs}")
+                    print(f"Job Number : {job.job_number}")
+                    print(f"Legacy ID  : {job.legacy_id}")
+                    print(f"Files      : {len(job.files)}")
+                    print("=" * 70)
+
+                    self.migrate_job(job)
+
+                    completed_jobs += 1
+
+                    percent = completed_jobs / total_jobs * 100
+
+                    print(
+                        f"Progress: {completed_jobs}/{total_jobs} "
+                        f"({percent:.1f}%)"
+                    )
+
+                    tracker.save(job.job_number)
+
+            except KeyboardInterrupt:
+            
+                print("/nMigration interrupted.")
+
             self.stats.print_summary()
 
-        finally:
+            print()
+            print("=" * 70)
+            print("Migration Complete")
+            print(f"Jobs Processed: {completed_jobs}")
+            print(f"Total Jobs    : {total_jobs}")
+            print("=" * 70)
 
+        finally:
+            tracker.clear()
             browser.close()
             p.stop()

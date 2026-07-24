@@ -136,3 +136,71 @@ customer_id,job_number,filename,saved_path,status,error
 844126,1972393,invoice_1868820_signed_2022-10-07.pdf,sera_media\Customer_844126\Job_1972393\invoice_1868820_signed_2022-10-07.pdf,Downloaded,
 844126,3583790,quote_789388_signed_2023-04-17_8-45am.pdf,sera_media\Customer_844126\Job_3583790\quote_789388_signed_2023-04-17_8-45am.pdf,Downloaded,
 844126,3583790,invoice_3424628_signed_2023-04-17.pdf,sera_media\Customer_844126\Job_3583790\invoice_3424628_signed_2023-04-17.pdf,Downloaded,
+843598,Unassigned,,,Skipped,Download link not found
+843613,Unassigned,,,Skipped,Download link not found
+843636,1100843,quote_625720_signed_2022-02-12_6-54pm.pdf,sera_media\Customer_843636\Job_1100843\quote_625720_signed_2022-02-12_6-54pm_2.pdf,Downloaded,
+843636,1100843,quote_625728_signed_2022-02-12_6-54pm.pdf,sera_media\Customer_843636\Job_1100843\quote_625728_signed_2022-02-12_6-54pm_2.pdf,Downloaded,
+843636,1100843,quote_625720_emailed_2022-02-14_5-51pm.pdf,sera_media\Customer_843636\Job_1100843\quote_625720_emailed_2022-02-14_5-51pm_2.pdf,Downloaded,
+843636,1100843,quote_625728_emailed_2022-02-14_5-51pm.pdf,sera_media\Customer_843636\Job_1100843\quote_625728_emailed_2022-02-14_5-51pm_2.pdf,Downloaded,
+843690,1100913,quote_625817_signed_2022-02-14_1-18pm.pdf,sera_media\Customer_843690\Job_1100913\quote_625817_signed_2022-02-14_1-18pm_2.pdf,Downloaded,
+843690,1100913,invoice_1039101_signed_2022-03-29.pdf,sera_media\Customer_843690\Job_1100913\invoice_1039101_signed_2022-03-29_2.pdf,Downloaded,
+843690,1100913,quote_625817_signed_2022-08-23_10-01am.pdf,sera_media\Customer_843690\Job_1100913\quote_625817_signed_2022-08-23_10-01am_2.pdf,Downloaded,
+844126,3583790,media_1.jpg,sera_media\Customer_844126\Job_3583790\media_1_2.jpg,Downloaded,
+844126,5014981,media_2.jpg,sera_media\Customer_844126\Job_5014981\media_2_2.jpg,Downloaded,
+844126,6311510,media_3.jpg,sera_media\Customer_844126\Job_6311510\media_3_2.jpg,Downloaded,
+844126,Unknown,media_3.jpg,,Error,"Keyboard.press: Target page, context or browser has been closed"
+844126,Unknown,,,Error,"Locator.get_attribute: Target page, context or browser has been closed"
+844126,Unknown,,,Error,"Locator.get_attribute: Target page, context or browser has been closed"
+844126,Unknown,,,Error,"Locator.get_attribute: Target page, context or browser has been closed"
+844126,Unknown,,,Error,"Locator.get_attribute: Target page, context or browser has been closed"
+843598,3607302,media_1.jpg,sera_media\Customer_843598\Job_3607302\media_1.jpg,Downloaded,
+843598,5039847,media_2.jpg,sera_media\Customer_843598\Job_5039847\media_2.jpg,Downloaded,
+843598,5517233,media_3.jpg,sera_media\Customer_843598\Job_5517233\media_3.jpg,Downloaded,
+843598,1100786,quote_627392_signed_2022-02-17_8-08am.pdf,sera_media\Customer_843598\Job_1100786\quote_627392_signed_2022-02-17_8-08am.pdf,Downloaded,
+843598,1100786,invoice_1040003_signed_2022-02-17.pdf,sera_media\Customer_843598\Job_1100786\invoice_1040003_signed_2022-02-17.pdf,Downloaded,
+843598,1295602,quote_667430_signed_2022-05-10_1-50pm.pdf,sera_media\Customer_843598\Job_1295602\quote_667430_signed_2022-05-10_1-50pm.pdf,Downloaded,
+843598,1295602,invoice_1236662_signed_2022-05-10.pdf,sera_media\Customer_843598\Job_1295602\invoice_1236662_signed_2022-05-10.pdf,Downloaded,
+843598,Unknown,invoice_1236662_signed_2022-05-10.pdf,,Error,"Keyboard.press: Target page, context or browser has been closed"
+843598,Unknown,,,Error,"Locator.get_attribute: Target page, context or browser has been closed"
+843598,Unknown,,,Error,"Locator.get_attribute: Target page, context or browser has been closed"
+843598,Unknown,,,Error,"Locator.get_attribute: Target page, context or browser has been closed"
+843598,Unknown,,,Error,"Locator.get_attribute: Target page, context or browser has been closed"
+843598,Unknown,,,Error,"Locator.get_attribute: Target page, context or browser has been closed"
+843598,Unknown,,,Error,"Locator.get_attribute: Target page, context or browser has been closed"
+843598,Unknown,,,Error,"Locator.get_attribute: Target page, context or browser has been closed"
+843598,Unknown,,,Error,"Locator.get_attribute: Target page, context or browser has been closed"
+843598,Unknown,,,Error,"Locator.get_attribute: Target page, context or browser has been closed"
+843598,Unknown,,,Error,"Locator.get_attribute: Target page, context or browser has been closed"
+843598,Unknown,,,Error,"Locator.get_attribute: Target page, context or browser has been closed"
+843598,Unknown,,,Error,"Locator.get_attribute: Target page, context or browser has been closed"
+843598,Unknown,,,Error,"Locator.get_attribute: Target page, context or browser has been closed"
+843598,Unknown,,,Error,"Locator.get_attribute: Target page, context or browser has been closed"
+843598,Unknown,,,Error,"Locator.get_attribute: Target page, context or browser has been closed"
+843598,Unknown,,,Error,"Locator.get_attribute: Target page, context or browser has been closed"
+843598,Unknown,,,Error,"Locator.get_attribute: Target page, context or browser has been closed"
+843598,3607302,media_1.jpg,sera_media\Customer_843598\Job_3607302\media_1_2.jpg,Downloaded,
+843598,5039847,media_2.jpg,sera_media\Customer_843598\Job_5039847\media_2_2.jpg,Downloaded,
+843598,Unknown,media_2.jpg,,Error,"Keyboard.press: Target page, context or browser has been closed"
+843598,Unknown,,,Error,"Locator.get_attribute: Target page, context or browser has been closed"
+843598,Unknown,,,Error,"Locator.get_attribute: Target page, context or browser has been closed"
+843598,Unknown,,,Error,"Locator.get_attribute: Target page, context or browser has been closed"
+843598,Unknown,,,Error,"Locator.get_attribute: Target page, context or browser has been closed"
+843598,Unknown,,,Error,"Locator.get_attribute: Target page, context or browser has been closed"
+843598,Unknown,,,Error,"Locator.get_attribute: Target page, context or browser has been closed"
+843598,Unknown,,,Error,"Locator.get_attribute: Target page, context or browser has been closed"
+843598,Unknown,,,Error,"Locator.get_attribute: Target page, context or browser has been closed"
+843598,Unknown,,,Error,"Locator.get_attribute: Target page, context or browser has been closed"
+843598,Unknown,,,Error,"Locator.get_attribute: Target page, context or browser has been closed"
+843598,Unknown,,,Error,"Locator.get_attribute: Target page, context or browser has been closed"
+843598,Unknown,,,Error,"Locator.get_attribute: Target page, context or browser has been closed"
+843598,Unknown,,,Error,"Locator.get_attribute: Target page, context or browser has been closed"
+843598,Unknown,,,Error,"Locator.get_attribute: Target page, context or browser has been closed"
+843598,Unknown,,,Error,"Locator.get_attribute: Target page, context or browser has been closed"
+843598,Unknown,,,Error,"Locator.get_attribute: Target page, context or browser has been closed"
+843598,Unknown,,,Error,"Locator.get_attribute: Target page, context or browser has been closed"
+843598,Unknown,,,Error,"Locator.get_attribute: Target page, context or browser has been closed"
+843598,Unknown,,,Error,"Locator.get_attribute: Target page, context or browser has been closed"
+843598,Unknown,,,Error,"Locator.get_attribute: Target page, context or browser has been closed"
+843598,Unknown,,,Error,"Locator.get_attribute: Target page, context or browser has been closed"
+843598,Unknown,,,Error,"Locator.get_attribute: Target page, context or browser has been closed"
+843598,3607302,media_1.jpg,sera_media\Customer_843598\Job_3607302\media_1_3.jpg,Downloaded,

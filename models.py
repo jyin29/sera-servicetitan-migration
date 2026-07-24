@@ -12,3 +12,16 @@ class MigrationJob:
     @property
     def file_count(self):
         return len(self.files)
+
+@dataclass
+class SeraMedia:
+
+    customer_id: str
+
+    job_number: str | None
+
+    filename: str
+
+    download_url: str
+
+    local_path: Path | None = None

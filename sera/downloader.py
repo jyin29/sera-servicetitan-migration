@@ -1,78 +1,25 @@
 from pathlib import Path
 
-from playwright.sync_api import sync_playwright
+from models import SeraMedia
 
 
 class SeraDownloader:
 
-    def __init__(
-        self,
-        excel_file,
-        output_folder,
-        logger,
-        test_mode=False,
-        test_limit=5,
-    ):
+    def __init__(self, download_folder):
 
-        self.excel_file = Path(excel_file)
+        self.download_folder = Path(download_folder)
 
-        self.output_folder = Path(output_folder)
+    def download(self, media: SeraMedia):
 
-        self.logger = logger
+        """
+        Downloads ONE file.
 
-        self.test_mode = test_mode
-
-        self.test_limit = test_limit
-
-        self.playwright = None
-
-        self.context = None
-
-        self.page = None
-
-    def log(self, text):
-
-        print(text)
-
-        if self.logger:
-            self.logger(text)
-
-    def start(self):
-
-        self.playwright = sync_playwright().start()
-
-        self.context = (
-            self.playwright.chromium.launch_persistent_context(
-                "sera_browser_profile",
-                headless=False,
-            )
-        )
-
-        if self.context.pages:
-            self.page = self.context.pages[0]
-        else:
-            self.page = self.context.new_page()
-
-    def stop(self):
-
-        if self.context:
-            self.context.close()
-
-        if self.playwright:
-            self.playwright.stop()
-
-    def run(self):
-
-        self.start()
-
-        self.log("Browser started.")
+        Returns the updated media object.
+        """
 
         #
-        # THIS IS WHERE YOUR EXISTING
-        # test_sera.py LOGIC
-        # IS GOING TO GO.
+        # We'll put your existing Playwright
+        # download logic here next.
         #
 
-        self.stop()
-
-        self.log("Finished.")
+        return media

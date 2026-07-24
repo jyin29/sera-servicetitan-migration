@@ -36,6 +36,8 @@ LOG_FILE = Path("download_log.csv")
 
 RUNTIME_EXCEL_FILE = None
 
+GUI = None
+
 
 # ============================================================
 # HELPER FUNCTIONS
@@ -340,6 +342,11 @@ def run(
             start=1
 
         ):
+            if GUI is not None:
+                GUI.set_progress(
+                    customer_number,
+                    len(customer_ids)
+                )
 
             #
             # Resume support

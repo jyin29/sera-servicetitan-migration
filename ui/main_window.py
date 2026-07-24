@@ -4,6 +4,7 @@ import threading
 import traceback
 from tkinter import filedialog
 from test_sera import run
+from tkinter import ttk
 
 
 
@@ -23,6 +24,45 @@ class MainWindow:
         self.build()
 
         self.stdout = StdoutRedirect(self.write)
+
+        #
+        # Progress
+        #
+        self.progress = ttk.Progressbar(
+            self.root,
+            orient="horizontal",
+            mode="determinate",
+            length=500
+        )
+
+        self.progress.pack(
+            fill="x",
+            padx=10,
+            pady=(5, 10)
+        )
+
+        self.progress_label = tk.Label(
+            self.root,
+            text="0 / 0 Customers"
+        )
+
+        self.progress_label.pack()
+
+    def set_progress(
+        self,
+        current,
+        total
+    ):
+
+        self.progress["maximum"] = total
+
+        self.progress["value"] = current
+
+        self.progress_label.config(
+            text=f"{current} / {total} Customers"
+        )
+
+        self.root.update_idletasks()
 
     def build(self):
 
@@ -298,6 +338,10 @@ class MainWindow:
         try:
 
             limit = int(self.limit_entry.get())
+
+            import test_sera
+
+            test_sera.GUI = self
 
             run(
 

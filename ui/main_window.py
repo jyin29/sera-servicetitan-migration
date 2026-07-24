@@ -337,7 +337,12 @@ class MainWindow:
             print("Downloading from Sera...")
             print("=" * 60)
 
-            sera_download()
+            limit = int(self.limit_entry.get())
+
+            run(
+                workbook=self.excel_path.get(),
+                limit=limit
+            )
 
             print()
             print("=" * 60)
@@ -395,12 +400,6 @@ class MainWindow:
 
             self.stdout.stop()
 
-    def run(
+    def run(self):
 
-            workbook=None,
-
-            limit=0
-
-        ):
-        
         self.root.mainloop()

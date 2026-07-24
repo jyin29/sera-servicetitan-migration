@@ -2,6 +2,7 @@ from live_migration import LiveMigration
 from playwright.sync_api import sync_playwright
 from pathlib import Path
 from openpyxl import load_workbook
+from resume_tracker import ResumeTracker
 import csv
 import time
 import re
@@ -29,9 +30,9 @@ UPLOADED_FOLDER.mkdir(exist_ok=True)
 LOG_FILE = Path("download_log.csv")
 
 # TEST FIRST
-TEST_MODE = True
+#TEST_MODE = True
 
-TEST_CUSTOMER_COUNT = 1
+#TEST_CUSTOMER_COUNT = 1
 
 RUNTIME_EXCEL_FILE = None
 
@@ -207,6 +208,7 @@ def run(
     workbook=None,
     limit=0
 ):
+    completed = False
 
     print("Entered run()")
 
@@ -236,6 +238,20 @@ def run(
 
     customer_ids = []
 
+    tracker = ResumeTracker()
+
+    last_customer = tracker.load()
+
+    if last_customer:
+
+        print(
+            f"Resuming after customer "
+            f"{last_customer}"
+        )
+
+    resume = last_customer is None
+
+    skip_current = last_customer is not None
 
     # Column A = Id
 
@@ -325,6 +341,26 @@ def run(
 
         ):
 
+            #
+            # Resume support
+            #
+            if not resume:
+
+                if str(customer_id) == last_customer:
+                    resume = True
+
+                continue
+
+            #
+            # Skip the customer we already completed
+            #
+
+            if skip_current:
+
+                skip_current = False
+
+                continue
+
             print("\n" + "=" * 60)
 
             print(
@@ -397,12 +433,7 @@ def run(
                 real_media_number = 0
 
 
-                for image_number in range(
-                    min(
-                        image_count,
-                        2
-                    )
-                ):
+                for image_number in range(image_count):
 
                     filename = ""
 
@@ -691,37 +722,66 @@ def run(
 
                         )
 
+                        uploaded_path = (
+                            UPLOADED_FOLDER
+                            / file_path.relative_to(DOWNLOAD_FOLDER)
+                        )
+
+                        #
+                        # Already migrated?
+                        #
+
+                        if uploaded_path.exists():
+
+                            print(f"✓ Already migrated: {filename}")
+
+                            page.keyboard.press("Escape")
+
+                            page.wait_for_timeout(400)
+
+                            continue
+
 
                         # Avoid overwriting
 
+                        #
+                        # Already downloaded?
+                        #
                         if file_path.exists():
 
-                            base = file_path.stem
+                            print(f"Already downloaded: {filename}")
 
-                            extension = (
-
-                                file_path.suffix
-
+                            success = migration.migrate_file(
+                                customer_id,
+                                job_number,
+                                file_path
                             )
 
-                            counter = 2
+                            if success:
 
-
-                            while file_path.exists():
-
-                                file_path = (
-
-                                    job_folder /
-
-                                    f"{base}_"
-
-                                    f"{counter}"
-
-                                    f"{extension}"
-
+                                destination = (
+                                    UPLOADED_FOLDER
+                                    / file_path.relative_to(DOWNLOAD_FOLDER)
                                 )
 
-                                counter += 1
+                                destination.parent.mkdir(
+                                    parents=True,
+                                    exist_ok=True
+                                )
+
+                                file_path.rename(destination)
+
+                                print(f"✓ Uploaded → {destination}")
+
+                            else:
+
+                                print("✗ Upload failed")
+
+                            page.keyboard.press("Escape")
+
+                            page.wait_for_timeout(400)
+
+                            continue
 
 
                         file_path.write_bytes(
@@ -836,6 +896,7 @@ def run(
 
                 time.sleep(1)
 
+                tracker.save(customer_id)
 
             except Exception as error:
 
@@ -846,6 +907,7 @@ def run(
 
                 )
 
+        completed = True
 
         print("\n" + "=" * 60)
 
@@ -868,6 +930,9 @@ def run(
             f"{LOG_FILE.absolute()}"
 
         )
+
+        if completed:
+            tracker.clear()
 
         #migration.close()
 

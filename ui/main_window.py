@@ -41,7 +41,7 @@ class MainWindow:
             pady=(5, 10)
         )
 
-        self.progress_label = tk.Label(
+        self.progress_label = ctk.CTkLabel(
             self.root,
             text="0 / 0 Customers"
         )
@@ -54,15 +54,17 @@ class MainWindow:
         total
     ):
 
-        self.progress["maximum"] = total
+        def update():
 
-        self.progress["value"] = current
+            self.progress["maximum"] = total
 
-        self.progress_label.config(
-            text=f"{current} / {total} Customers"
-        )
+            self.progress["value"] = current
 
-        self.root.update_idletasks()
+            self.progress_label.configure(
+                text=f"{current} / {total} Customers"
+            )
+
+        self.root.after(0, update)
 
     def build(self):
 
@@ -227,6 +229,82 @@ class MainWindow:
             pady=(0, 10)
         )
 
+        #
+        # Statistics
+        #
+        stats_frame = ctk.CTkFrame(self.root)
+
+        stats_frame.pack(
+            fill="x",
+            padx=40,
+            pady=(0, 10)
+        )
+
+        self.uploaded_label = ctk.CTkLabel(
+            stats_frame,
+            text="Uploaded: 0"
+        )
+
+        self.uploaded_label.grid(
+            row=0,
+            column=0,
+            padx=15,
+            pady=8,
+            sticky="w"
+        )
+
+        self.skipped_label = ctk.CTkLabel(
+            stats_frame,
+            text="Skipped: 0"
+        )
+
+        self.skipped_label.grid(
+            row=0,
+            column=1,
+            padx=15,
+            pady=8,
+            sticky="w"
+        )
+
+        self.failed_label = ctk.CTkLabel(
+            stats_frame,
+            text="Failed: 0"
+        )
+
+        self.failed_label.grid(
+            row=0,
+            column=2,
+            padx=15,
+            pady=8,
+            sticky="w"
+        )
+
+        self.elapsed_label = ctk.CTkLabel(
+            stats_frame,
+            text="Elapsed: 00:00:00"
+        )
+
+        self.elapsed_label.grid(
+            row=1,
+            column=0,
+            padx=15,
+            pady=(0, 10),
+            sticky="w"
+        )
+
+        self.eta_label = ctk.CTkLabel(
+            stats_frame,
+            text="ETA: --"
+        )
+
+        self.eta_label.grid(
+            row=1,
+            column=1,
+            padx=15,
+            pady=(0, 10),
+            sticky="w"
+        )
+
         self.log = ctk.CTkTextbox(
             self.root,
             width=760,
@@ -276,25 +354,22 @@ class MainWindow:
             )
         )
 
-    def set_customer(self, text):
+    def set_customer(self, customer):
 
-        self.root.after(
-            0,
-            lambda: self.customer_label.configure(
-                text=f"Customer: {text}"
-            )
+        self.customer_label.config(
+            text=f"Customer: {customer}"
         )
 
+        self.root.update_idletasks()
 
-    def set_job(self, text):
 
-        self.root.after(
-            0,
-            lambda: self.job_label.configure(
-                text=f"Job: {text}"
-            )
+    def set_job(self, job):
+
+        self.job_label.config(
+            text=f"Job: {job}"
         )
 
+        self.root.update_idletasks()
 
     def set_file(self, text):
 
@@ -302,6 +377,54 @@ class MainWindow:
             0,
             lambda: self.file_label.configure(
                 text=f"File: {text}"
+            )
+        )
+
+    def set_uploaded(self, count):
+
+        self.root.after(
+            0,
+            lambda: self.uploaded_label.configure(
+                text=f"Uploaded: {count}"
+            )
+        )
+
+
+    def set_skipped(self, count):
+
+        self.root.after(
+            0,
+            lambda: self.skipped_label.configure(
+                text=f"Skipped: {count}"
+            )
+        )
+
+
+    def set_failed(self, count):
+
+        self.root.after(
+            0,
+            lambda: self.failed_label.configure(
+                text=f"Failed: {count}"
+            )
+        )
+
+    def set_elapsed(self, text):
+
+        self.root.after(
+            0,
+            lambda: self.elapsed_label.configure(
+                text=f"Elapsed: {text}"
+            )
+        )
+
+
+    def set_eta(self, text):
+
+        self.root.after(
+            0,
+            lambda: self.eta_label.configure(
+                text=f"ETA: {text}"
             )
         )
 
@@ -388,17 +511,10 @@ class MainWindow:
                 limit=limit
             )
 
+            self.set_status("FINISHED")
+
             print()
-            print("=" * 60)
-            print("STEP 2")
-            print("Uploading to ServiceTitan...")
-            print("=" * 60)
-
-            from migration_engine import MigrationEngine
-
-            self.set_status("UPLOADING")
-
-            MigrationEngine().run()
+            print("Migration complete.")
 
             self.set_status("FINISHED")
 

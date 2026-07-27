@@ -3,6 +3,7 @@ from playwright.sync_api import sync_playwright
 from pathlib import Path
 from openpyxl import load_workbook
 from resume_tracker import ResumeTracker
+from datetime import datetime, timedelta
 import csv
 import time
 import re
@@ -236,11 +237,17 @@ def run(
 
     )
 
+    start_time = time.time()
+
     sheet = workbook.active
 
     customer_ids = []
 
     tracker = ResumeTracker()
+
+    uploaded_count = 0
+    skipped_count = 0
+    failed_count = 0
 
     last_customer = tracker.load()
 
@@ -348,6 +355,31 @@ def run(
                     len(customer_ids)
                 )
 
+            if GUI and customer_number > 0:
+
+                elapsed = time.time() - start_time
+
+                elapsed_string = str(
+                    timedelta(seconds=int(elapsed))
+                )
+
+                GUI.set_elapsed(elapsed_string)
+
+                average = elapsed / customer_number
+
+                remaining = (
+                    len(customer_ids)
+                    - customer_number
+                )
+
+                eta = datetime.now() + timedelta(
+                    seconds=average * remaining
+                )
+
+                GUI.set_eta(
+                    eta.strftime("%I:%M %p")
+                )
+
             #
             # Resume support
             #
@@ -379,6 +411,9 @@ def run(
             )
 
             print("=" * 60)
+
+            if GUI:
+                GUI.set_customer(customer_id)
 
 
             customer_folder = (
@@ -508,6 +543,9 @@ def run(
                             f"  Job: #{job_number}"
 
                         )
+
+                        if GUI:
+                            GUI.set_job(job_number)
 
 
                         # ------------------------------------------------
@@ -742,6 +780,11 @@ def run(
 
                             print(f"✓ Already migrated: {filename}")
 
+                            skipped_count += 1
+
+                            if GUI:
+                                GUI.set_skipped(skipped_count)
+
                             page.keyboard.press("Escape")
 
                             page.wait_for_timeout(400)
@@ -757,6 +800,9 @@ def run(
                         if file_path.exists():
 
                             print(f"Already downloaded: {filename}")
+
+                            if GUI:
+                                GUI.set_file(filename)
 
                             success = migration.migrate_file(
                                 customer_id,
@@ -780,9 +826,19 @@ def run(
 
                                 print(f"✓ Uploaded → {destination}")
 
+                                uploaded_count += 1
+
+                                if GUI:
+                                    GUI.set_uploaded(uploaded_count)
+
                             else:
 
                                 print("✗ Upload failed")
+
+                                failed_count += 1
+
+                                if GUI:
+                                    GUI.set_failed(failed_count)
 
                             page.keyboard.press("Escape")
 
@@ -819,9 +875,19 @@ def run(
 
                             print(f"✓ Uploaded → {destination}")
 
+                            uploaded_count += 1
+
+                            if GUI:
+                                GUI.set_uploaded(uploaded_count)
+
                         else:
 
                             print("✗ Upload failed")
+
+                            failed_count += 1
+
+                            if GUI:
+                                GUI.set_failed(failed_count)
 
 
                         print(

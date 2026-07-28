@@ -47,47 +47,41 @@ class JobSearcher:
 
         print(f"\nSearching for job {job_number}...")
 
-        for attempt in range(2):
+        self._search(job_number)
 
-            if attempt:
-                print("Retrying search...")
+        jobs = self.page.locator(
+            'a[data-fs-entity-type="Job"]'
+        )
 
-            self._search(job_number)
+        count = jobs.count()
 
-            jobs = self.page.locator(
-                'a[data-fs-entity-type="Job"]'
-            )
+        print(f"Job results: {count}")
 
-            count = jobs.count()
+        for i in range(count):
 
-            print(f"Job results: {count}")
+            text = jobs.nth(i).inner_text().strip()
 
-            for i in range(count):
+            print("Candidate:", text)
 
-                text = jobs.nth(i).inner_text().strip()
+            if text.startswith(f"Job #{job_number}"):
 
-                print("Candidate:", text)
+                jobs.nth(i).click()
 
-                if text.startswith(f"Job #{job_number}"):
+                try:
+                    self.page.wait_for_url(
+                        "**/Job/**",
+                        timeout=10000
+                    )
+                except:
+                    self.page.wait_for_timeout(1500)
 
-                    jobs.nth(i).click()
+                self.page.keyboard.press("Escape")
 
-                    try:
-                        self.page.wait_for_url(
-                            "**/Job/**",
-                            timeout=10000
-                        )
-                    except:
-                        self.page.wait_for_timeout(1500)
+                self._reset_search()
 
-                    self.page.keyboard.press("Escape")
+                return True
 
-                    self._reset_search()
-
-                    return True
-
-            # Close search before retrying
-            self.page.keyboard.press("Escape")
+        self.page.keyboard.press("Escape")
 
         print("Exact job not found.")
 

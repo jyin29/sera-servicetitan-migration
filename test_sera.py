@@ -4,12 +4,14 @@ from pathlib import Path
 from openpyxl import load_workbook
 from resume_tracker import ResumeTracker
 from datetime import datetime, timedelta
+from progress import progress
+from cancel import cancel
 import csv
 import time
 import re
 
 
-print("Starting test_sera...")
+progress.log("Starting test_sera...")
 
 
 # ============================================================
@@ -36,9 +38,6 @@ LOG_FILE = Path("download_log.csv")
 #TEST_CUSTOMER_COUNT = 1
 
 RUNTIME_EXCEL_FILE = None
-
-GUI = None
-
 
 # ============================================================
 # HELPER FUNCTIONS
@@ -211,30 +210,35 @@ def run(
     workbook=None,
     limit=0
 ):
+
+    
+    
     completed = False
 
-    print("Entered run()")
+    progress.log("Entered run()")
 
     global RUNTIME_EXCEL_FILE
 
     RUNTIME_EXCEL_FILE = workbook
 
-    print("Reading customer list...")
+    progress.log("Reading customer list...")
 
-    print("Workbook:", RUNTIME_EXCEL_FILE or EXCEL_FILE)
+    workbook_path = workbook or EXCEL_FILE
+
+    progress.log(f"Workbook: {workbook_path}")
+    print("Absolute: " + str(Path(workbook_path).resolve()))
+    print("Exists: " + str(Path(workbook_path).exists()))
 
     #from pathlib import Path
 
-    print("Absolute:", Path(RUNTIME_EXCEL_FILE or EXCEL_FILE).resolve())
+    print("Absolute: " + str(Path(RUNTIME_EXCEL_FILE or EXCEL_FILE).resolve()))
+    print("Exists: " + str(Path(RUNTIME_EXCEL_FILE or EXCEL_FILE).exists()))
 
-    print("Exists:", Path(RUNTIME_EXCEL_FILE or EXCEL_FILE).exists())
+    workbook_path = workbook or EXCEL_FILE
 
     workbook = load_workbook(
-
-        RUNTIME_EXCEL_FILE or EXCEL_FILE,
-
+        workbook_path,
         read_only=True
-
     )
 
     start_time = time.time()
@@ -253,7 +257,7 @@ def run(
 
     if last_customer:
 
-        print(
+        progress.log(
             f"Resuming after customer "
             f"{last_customer}"
         )
@@ -283,23 +287,23 @@ def run(
             )
 
 
-    print(
+    progress.log(
         f"Found {len(customer_ids)} customers."
     )
 
 
     if limit > 0:
 
-        customer_ids = customer_ids[:limit]
+        customer_ids = customer_ids[15:17]
 
-        print(
+        progress.log(
             f"TEST MODE: Processing "
             f"{len(customer_ids)} customers."
         )
 
     else:
 
-        print(
+        progress.log(
             f"FULL MODE: Processing "
             f"{len(customer_ids)} customers."
         )
@@ -314,702 +318,675 @@ def run(
 
     with sync_playwright() as p:
 
-        context = p.chromium.launch_persistent_context(
+        
 
-            "sera_browser_profile",
+        try:
 
-            headless=False
+            progress.log("Entered Playwright")
 
-        )
+            context = p.chromium.launch_persistent_context(
 
+                "sera_browser_profile",
 
-        page = (
+                headless=False
 
-            context.pages[0]
-
-            if context.pages
-
-            else context.new_page()
-
-        )
+            )
 
 
-        # ========================================================
-        # PROCESS CUSTOMERS
-        # ========================================================
+            page = (
 
-        migration = LiveMigration(p)
+                context.pages[0]
 
-        print("Connected to Sera")
+                if context.pages
 
-        for customer_number, customer_id in enumerate(
+                else context.new_page()
 
-            customer_ids,
+            )
 
-            start=1
 
-        ):
-            if GUI is not None:
-                GUI.set_progress(
+            # ========================================================
+            # PROCESS CUSTOMERS
+            # ========================================================
+
+            #migration = LiveMigration(p)
+
+            progress.log("Created LiveMigration")
+
+            progress.log("Connected to Sera")
+
+            progress.log("Starting customer loop")
+
+            for customer_number, customer_id in enumerate(
+
+                customer_ids,
+
+                start=1
+
+            ):
+
+                if cancel.is_cancelled():
+
+                    progress.log("Download cancelled.")
+
+                    break
+
+                progress.log(f"Processing customer {customer_id}")
+
+                if cancel.is_cancelled():
+
+                    progress.log("Migration cancelled.")
+
+                    break
+                progress.progress(
                     customer_number,
                     len(customer_ids)
                 )
 
-            if GUI and customer_number > 0:
+                if customer_number > 0:
 
-                elapsed = time.time() - start_time
+                    elapsed = time.time() - start_time
 
-                elapsed_string = str(
-                    timedelta(seconds=int(elapsed))
+                    #progress.elapsed(
+                    #    str(timedelta(seconds=int(elapsed)))
+                    #)
+
+                    average = elapsed / customer_number
+
+                    remaining = len(customer_ids) - customer_number
+
+                    eta = datetime.now() + timedelta(
+                        seconds=average * remaining
+                    )
+
+                    progress.eta(
+                        eta.strftime("%I:%M %p")
+        )
+                #
+                # Resume support
+                #
+                if not resume:
+
+                    if str(customer_id) == last_customer:
+                        resume = True
+
+                    continue
+
+                #
+                # Skip the customer we already completed
+                #
+
+                if skip_current:
+
+                    skip_current = False
+
+                    continue
+
+                progress.log("\n" + "=" * 60)
+
+                progress.log(
+
+                    f"[{customer_number}/"
+                    f"{len(customer_ids)}] "
+                    f"Customer {customer_id}"
+
                 )
 
-                GUI.set_elapsed(elapsed_string)
+                progress.log("=" * 60)
 
-                average = elapsed / customer_number
+                progress.customer(customer_id)
 
-                remaining = (
-                    len(customer_ids)
-                    - customer_number
+                progress.log(f"Customer: {customer_id}")
+
+                customer_folder = (
+
+                    DOWNLOAD_FOLDER /
+
+                    f"Customer_{customer_id}"
+
                 )
 
-                eta = datetime.now() + timedelta(
-                    seconds=average * remaining
-                )
+                customer_folder.mkdir(
 
-                GUI.set_eta(
-                    eta.strftime("%I:%M %p")
-                )
-
-            #
-            # Resume support
-            #
-            if not resume:
-
-                if str(customer_id) == last_customer:
-                    resume = True
-
-                continue
-
-            #
-            # Skip the customer we already completed
-            #
-
-            if skip_current:
-
-                skip_current = False
-
-                continue
-
-            print("\n" + "=" * 60)
-
-            print(
-
-                f"[{customer_number}/"
-                f"{len(customer_ids)}] "
-                f"Customer {customer_id}"
-
-            )
-
-            print("=" * 60)
-
-            if GUI:
-                GUI.set_customer(customer_id)
-
-
-            customer_folder = (
-
-                DOWNLOAD_FOLDER /
-
-                f"Customer_{customer_id}"
-
-            )
-
-            customer_folder.mkdir(
-
-                exist_ok=True
-
-            )
-
-
-            url = (
-
-                f"{BASE_URL}/"
-
-                f"{customer_id}"
-
-                f"?tab=c_Media+and+Documents"
-
-            )
-
-
-            try:
-
-                page.goto(
-
-                    url,
-
-                    wait_until="domcontentloaded",
-
-                    timeout=60000
+                    exist_ok=True
 
                 )
 
 
-                page.wait_for_timeout(1500)
+                url = (
 
+                    f"{BASE_URL}/"
 
-                images = page.locator("img")
+                    f"{customer_id}"
 
-
-                image_count = images.count()
-
-
-                print(
-
-                    f"Found {image_count} "
-                    f"image elements"
+                    f"?tab=c_Media+and+Documents"
 
                 )
 
 
-                real_media_number = 0
+                try:
 
+                    progress.action("Opening customer...")
 
-                for image_number in range(image_count):
+                    page.goto(
 
-                    filename = ""
+                        url,
 
+                        wait_until="domcontentloaded",
 
-                    try:
+                        timeout=60000
 
-                        image = images.nth(
+                    )
 
-                            image_number
 
-                        )
+                    page.wait_for_timeout(1500)
 
 
-                        filename = (
+                    images = page.locator("img")
 
-                            image.get_attribute(
 
-                                "alt"
+                    image_count = images.count()
 
-                            )
 
-                        )
+                    progress.log(
 
+                        f"Found {image_count} "
+                        f"image elements"
 
-                        # Skip fake UI image
+                    )
 
-                        if (
+                    real_media_number = 0
 
-                            filename
+                    customer_completed = True
 
-                            and
+                    for image_number in range(image_count):
 
-                            filename.strip().lower()
+                        filename = ""
 
-                            == "membership icon"
+                        if cancel.is_cancelled():
 
-                        ):
+                            progress.log("Migration cancelled.")
 
-                            print(
-
-                                "  Skipping "
-                                "Membership Icon"
-
-                            )
-
-                            continue
-
-
-                        real_media_number += 1
-
-
-                        # ------------------------------------------------
-                        # FIND JOB NUMBER
-                        # ------------------------------------------------
-
-                        job_number = get_job_number(
-
-                            image
-
-                        )
-
-
-                        print(
-
-                            f"  Job: #{job_number}"
-
-                        )
-
-                        if GUI:
-                            GUI.set_job(job_number)
-
-
-                        # ------------------------------------------------
-                        # CREATE JOB FOLDER
-                        # ------------------------------------------------
-
-                        job_folder = (
-
-                            customer_folder /
-
-                            f"Job_{job_number}"
-
-                        )
-
-
-                        job_folder.mkdir(
-
-                            exist_ok=True
-
-                        )
-
-
-                        # ------------------------------------------------
-                        # OPEN MEDIA
-                        # ------------------------------------------------
-
-                        image.click()
-
-
-                        page.wait_for_timeout(
-
-                            700
-
-                        )
-
-
-                        download_link = (
-
-                            page.get_by_role(
-
-                                "link",
-
-                                name="Download"
-
-                            )
-
-                        )
-
-
-                        if (
-
-                            download_link.count()
-
-                            == 0
-
-                        ):
-
-                            print(
-
-                                "  Could not find "
-                                "Download link"
-
-                            )
-
-
-                            write_log(
-
-                                customer_id,
-
-                                job_number,
-
-                                filename,
-
-                                "",
-
-                                "Skipped",
-
-                                "Download link not found"
-
-                            )
-
-
-                            page.keyboard.press(
-
-                                "Escape"
-
-                            )
-
-
-                            continue
-
-
-                        href = (
-
-                            download_link
-
-                            .first
-
-                            .get_attribute(
-
-                                "href"
-
-                            )
-
-                        )
-
-
-                        if not href:
-
-                            print(
-
-                                "  Download link had "
-                                "no URL"
-
-                            )
-
-                            continue
-
-
-                        # ------------------------------------------------
-                        # DOWNLOAD FILE
-                        # ------------------------------------------------
-
-                        response = (
-
-                            page.request.get(
-
-                                href,
-
-                                timeout=60000
-
-                            )
-
-                        )
-
-
-                        if response.status != 200:
-
-                            print(
-
-                                f"  Download failed: "
-                                f"HTTP {response.status}"
-
-                            )
-
-                            write_log(
-
-                                customer_id,
-
-                                job_number,
-
-                                filename,
-
-                                "",
-
-                                "Failed",
-
-                                f"HTTP {response.status}"
-
-                            )
-
-                            continue
-
-
-                        # ------------------------------------------------
-                        # FILENAME
-                        # ------------------------------------------------
-
-                        filename = clean_filename(
-
-                            filename
-
-                        )
-
-
-                        if not filename:
-
-                            filename = (
-
-                                f"media_"
-
-                                f"{real_media_number}"
-
-                            )
-
-
-                        # Add extension if needed
-
-                        if not Path(
-
-                            filename
-
-                        ).suffix:
-
-                            extension = get_extension(
-
-                                response.headers.get(
-
-                                    "content-type",
-
-                                    ""
-
-                                )
-
-                            )
-
-                            filename += extension
-
-
-                        # ------------------------------------------------
-                        # SAVE FILE
-                        # ------------------------------------------------
-
-                        file_path = (
-
-                            job_folder /
-
-                            filename
-
-                        )
-
-                        uploaded_path = (
-                            UPLOADED_FOLDER
-                            / file_path.relative_to(DOWNLOAD_FOLDER)
-                        )
-
-                        #
-                        # Already migrated?
-                        #
-
-                        if uploaded_path.exists():
-
-                            print(f"✓ Already migrated: {filename}")
-
-                            skipped_count += 1
-
-                            if GUI:
-                                GUI.set_skipped(skipped_count)
-
-                            page.keyboard.press("Escape")
-
-                            page.wait_for_timeout(400)
-
-                            continue
-
-
-                        # Avoid overwriting
-
-                        #
-                        # Already downloaded?
-                        #
-                        if file_path.exists():
-
-                            print(f"Already downloaded: {filename}")
-
-                            if GUI:
-                                GUI.set_file(filename)
-
-                            success = migration.migrate_file(
-                                customer_id,
-                                job_number,
-                                file_path
-                            )
-
-                            if success:
-
-                                destination = (
-                                    UPLOADED_FOLDER
-                                    / file_path.relative_to(DOWNLOAD_FOLDER)
-                                )
-
-                                destination.parent.mkdir(
-                                    parents=True,
-                                    exist_ok=True
-                                )
-
-                                file_path.rename(destination)
-
-                                print(f"✓ Uploaded → {destination}")
-
-                                uploaded_count += 1
-
-                                if GUI:
-                                    GUI.set_uploaded(uploaded_count)
-
-                            else:
-
-                                print("✗ Upload failed")
-
-                                failed_count += 1
-
-                                if GUI:
-                                    GUI.set_failed(failed_count)
-
-                            page.keyboard.press("Escape")
-
-                            page.wait_for_timeout(400)
-
-                            continue
-
-
-                        file_path.write_bytes(
-
-                            response.body()
-
-                        )
-
-                        success = migration.migrate_file(
-                            customer_id,
-                            job_number,
-                            file_path
-                        )
-
-                        if success:
-
-                            destination = (
-                                UPLOADED_FOLDER
-                                / file_path.relative_to(DOWNLOAD_FOLDER)
-                            )
-
-                            destination.parent.mkdir(
-                                parents=True,
-                                exist_ok=True
-                            )
-
-                            file_path.rename(destination)
-
-                            print(f"✓ Uploaded → {destination}")
-
-                            uploaded_count += 1
-
-                            if GUI:
-                                GUI.set_uploaded(uploaded_count)
-
-                        else:
-
-                            print("✗ Upload failed")
-
-                            failed_count += 1
-
-                            if GUI:
-                                GUI.set_failed(failed_count)
-
-
-                        print(
-
-                            f"  SAVED: {file_path}"
-
-                        )
-
-
-                        write_log(
-
-                            customer_id,
-
-                            job_number,
-
-                            filename,
-
-                            str(file_path),
-
-                            "Downloaded"
-
-                        )
-
-
-                        # Close viewer
-
-                        page.keyboard.press(
-
-                            "Escape"
-
-                        )
-
-
-                        page.wait_for_timeout(
-
-                            400
-
-                        )
-
-
-                    except Exception as error:
-
-                        print(
-
-                            f"  ERROR: {error}"
-
-                        )
-
-
-                        write_log(
-
-                            customer_id,
-
-                            "Unknown",
-
-                            filename,
-
-                            "",
-
-                            "Error",
-
-                            str(error)
-
-                        )
+                            break
 
 
                         try:
 
+                            image = images.nth(
+
+                                image_number
+
+                            )
+
+
+                            filename = (
+
+                                image.get_attribute(
+
+                                    "alt"
+
+                                )
+
+                            )
+
+
+                            # Skip fake UI image
+
+                            if (
+
+                                filename
+
+                                and
+
+                                filename.strip().lower()
+
+                                == "membership icon"
+
+                            ):
+
+                                progress.log(
+
+                                    "  Skipping "
+                                    "Membership Icon"
+
+                                )
+
+                                continue
+
+
+                            real_media_number += 1
+
+
+                            # ------------------------------------------------
+                            # FIND JOB NUMBER
+                            # ------------------------------------------------
+
+                            progress.action("Finding job...")
+
+                            job_number = get_job_number(
+
+                                image
+
+                            )
+
+
+                            progress.log(
+
+                                f"  Job: #{job_number}"
+
+                            )
+
+                            progress.job(job_number)
+
+
+                            # ------------------------------------------------
+                            # CREATE JOB FOLDER
+                            # ------------------------------------------------
+
+                            job_folder = (
+
+                                customer_folder /
+
+                                f"Job_{job_number}"
+
+                            )
+
+
+                            job_folder.mkdir(
+
+                                exist_ok=True
+
+                            )
+
+
+                            # ------------------------------------------------
+                            # OPEN MEDIA
+                            # ------------------------------------------------
+
+                            image.click()
+
+
+                            page.wait_for_timeout(
+
+                                700
+
+                            )
+
+
+                            download_link = (
+
+                                page.get_by_role(
+
+                                    "link",
+
+                                    name="Download"
+
+                                )
+
+                            )
+
+
+                            if (
+
+                                download_link.count()
+
+                                == 0
+
+                            ):
+
+                                progress.log(
+
+                                    "  Could not find "
+                                    "Download link"
+
+                                )
+
+
+                                write_log(
+
+                                    customer_id,
+
+                                    job_number,
+
+                                    filename,
+
+                                    "",
+
+                                    "Skipped",
+
+                                    "Download link not found"
+
+                                )
+
+
+                                page.keyboard.press(
+
+                                    "Escape"
+
+                                )
+
+
+                                continue
+
+
+                            href = (
+
+                                download_link
+
+                                .first
+
+                                .get_attribute(
+
+                                    "href"
+
+                                )
+
+                            )
+
+
+                            if not href:
+
+                                progress.log(
+
+                                    "  Download link had "
+                                    "no URL"
+
+                                )
+
+                                continue
+
+
+                            # ------------------------------------------------
+                            # DOWNLOAD FILE
+                            # ------------------------------------------------
+
+                            progress.action("Downloading file...")
+                            
+                            response = (
+
+                                page.request.get(
+
+                                    href,
+
+                                    timeout=60000
+
+                                )
+
+                            )
+
+
+                            if response.status != 200:
+
+                                progress.log(
+
+                                    f"  Download failed: "
+                                    f"HTTP {response.status}"
+
+                                )
+
+                                write_log(
+
+                                    customer_id,
+
+                                    job_number,
+
+                                    filename,
+
+                                    "",
+
+                                    "Failed",
+
+                                    f"HTTP {response.status}"
+
+                                )
+
+                                continue
+
+
+                            # ------------------------------------------------
+                            # FILENAME
+                            # ------------------------------------------------
+
+                            filename = clean_filename(
+
+                                filename
+
+                            )
+
+
+                            if not filename:
+
+                                filename = (
+
+                                    f"media_"
+
+                                    f"{real_media_number}"
+
+                                )
+
+
+                            # Add extension if needed
+
+                            if not Path(
+
+                                filename
+
+                            ).suffix:
+
+                                extension = get_extension(
+
+                                    response.headers.get(
+
+                                        "content-type",
+
+                                        ""
+
+                                    )
+
+                                )
+
+                                filename += extension
+
+
+                            # ------------------------------------------------
+                            # SAVE FILE
+                            # ------------------------------------------------
+
+                            file_path = (
+
+                                job_folder /
+
+                                filename
+
+                            )
+
+                            uploaded_path = (
+                                UPLOADED_FOLDER
+                                / file_path.relative_to(DOWNLOAD_FOLDER)
+                            )
+
+                            #
+                            # Already migrated?
+                            #
+
+                            if uploaded_path.exists():
+
+                                progress.log(f"✓ Already migrated: {filename}")
+
+                                skipped_count += 1
+
+                                progress.skipped(skipped_count)
+
+                                page.keyboard.press("Escape")
+
+                                page.wait_for_timeout(400)
+
+                                continue
+
+
+                            # Avoid overwriting
+
+                            #
+                            # Already downloaded?
+                            #
+                            if file_path.exists():
+
+                                progress.log(f"Already downloaded: {filename}")
+
+                                progress.file(filename)
+
+                                progress.action("Already downloaded")
+
+                                page.keyboard.press("Escape")
+
+                                page.wait_for_timeout(400)
+
+                                continue
+
+
+                            file_path.write_bytes(
+
+                                response.body()
+
+                            )
+
+                            progress.file(filename)
+
+                            progress.log(
+
+                                f"  SAVED: {file_path}"
+
+                            )
+
+
+                            write_log(
+
+                                customer_id,
+
+                                job_number,
+
+                                filename,
+
+                                str(file_path),
+
+                                "Downloaded"
+
+                            )
+
+
+                            # Close viewer
+
                             page.keyboard.press(
 
                                 "Escape"
 
                             )
 
-                        except:
 
-                            pass
+                            page.wait_for_timeout(
+
+                                400
+
+                            )
 
 
-                time.sleep(1)
+                        except Exception as error:
 
-                tracker.save(customer_id)
+                            customer_completed = False
 
-            except Exception as error:
+                            progress.log(
 
-                print(
+                                f"  ERROR: {error}"
 
-                    f"ERROR processing customer "
-                    f"{customer_id}: {error}"
+                            )
 
-                )
 
-        completed = True
+                            write_log(
 
-        print("\n" + "=" * 60)
+                                customer_id,
 
-        print("TEST COMPLETE")
+                                "Unknown",
 
-        print("=" * 60)
+                                filename,
 
-        print(
+                                "",
 
-            f"Files saved in: "
+                                "Error",
 
-            f"{DOWNLOAD_FOLDER.absolute()}"
+                                str(error)
 
-        )
+                            )
 
-        print(
 
-            f"Log saved in: "
+                            try:
 
-            f"{LOG_FILE.absolute()}"
+                                page.keyboard.press(
 
-        )
+                                    "Escape"
 
-        if completed:
-            tracker.clear()
+                                )
 
-        #migration.close()
+                            except:
 
-        context.close()
+                                pass
+
+
+                    page.wait_for_timeout(1000)
+
+                    if customer_completed:
+
+                        tracker.save(customer_id)
+
+                except Exception as e:
+
+                    import traceback
+
+                    traceback.print_exc()
+
+                    progress.log(f"Customer failed: {customer_id}")
+                    progress.log(str(e))
+
+                    failed_count += 1
+
+                    continue
+
+            completed = True
+
+            progress.log("\n" + "=" * 60)
+
+            progress.log("TEST COMPLETE")
+
+            progress.action("Finished")
+
+            progress.log("=" * 60)
+
+            progress.log(
+
+                f"Files saved in: "
+
+                f"{DOWNLOAD_FOLDER.absolute()}"
+
+            )
+
+            progress.log(
+
+                f"Log saved in: "
+
+                f"{LOG_FILE.absolute()}"
+
+            )
+
+            if completed:
+                tracker.clear()
+
+            #migration.close()
+
+            context.close()
+
+        except Exception:
+            import traceback
+            traceback.print_exc()
+            progress.log("Fatal error while downloading.")
+            progress.log(str(traceback.format_exc()))
 
 if __name__ == "__main__":
     run()

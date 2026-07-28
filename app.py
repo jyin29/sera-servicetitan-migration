@@ -2,8 +2,11 @@ from database.database import initialize_database
 
 try:
     from ui.main_window import MainWindow
-except ImportError:
-    MainWindow = None
+
+except Exception:
+    import traceback
+    traceback.print_exc()
+    raise
 
 
 def main():

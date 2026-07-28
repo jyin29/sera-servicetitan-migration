@@ -5,3 +5,67 @@ Legacy ID,Job Number,File,Status,Destination,Reason
 843613,1100807,media_1.jpg,FAILED,,Customer not found
 843613,1100807,invoice_1038895_signed_2022-02-12.pdf,SUCCESS,CUSTOMER,Job not found
 843613,1100807,media_1.jpg,SUCCESS,CUSTOMER,Job not found
+844746,1101975,media_1.jpg,SUCCESS,JOB,
+844746,1971650,media_2.jpg,SUCCESS,CUSTOMER,Job not found
+844746,4587389,media_3.jpg,SUCCESS,JOB,
+844746,4998150,media_4.jpg,SUCCESS,JOB,
+844746,1101975,media_1.jpg,SKIPPED,JOB,Already exists
+844746,1971650,media_2.jpg,SKIPPED,CUSTOMER,Already exists
+844746,4587389,media_3.jpg,SKIPPED,JOB,Already exists
+844746,4998150,media_4.jpg,SKIPPED,JOB,Already exists
+844746,6281315,media_5.jpg,SUCCESS,CUSTOMER,Job not found
+844755,3507559,media_1.jpg,SUCCESS,JOB,
+844755,5253206,media_2.jpg,SUCCESS,CUSTOMER,Job not found
+844755,6289220,media_3.jpg,SUCCESS,CUSTOMER,Job not found
+844755,6313928,media_4.jpg,SUCCESS,JOB,
+844755,6313928,media_5.jpg,SUCCESS,JOB,
+844755,6313928,media_6.jpg,SUCCESS,JOB,
+844746,1101975,media_1.jpg,SKIPPED,JOB,Already exists
+844746,1101975,media_1.jpg,SKIPPED,JOB,Already exists
+844746,1101975,media_1.jpg,SKIPPED,JOB,Already exists
+844746,1971650,media_2.jpg,SKIPPED,CUSTOMER,Already exists
+844746,4587389,media_3.jpg,SUCCESS,JOB,
+844746,4998150,media_4.jpg,SKIPPED,JOB,Already exists
+844746,6281315,media_5.jpg,SKIPPED,CUSTOMER,Already exists
+844755,3507559,media_1.jpg,SUCCESS,JOB,
+844746,1101975,media_1.jpg,SUCCESS,JOB,
+844746,1101975,media_1.jpg,SKIPPED,JOB,Already exists
+844746,1971650,media_2.jpg,SKIPPED,CUSTOMER,Already exists
+844746,4587389,media_3.jpg,SKIPPED,JOB,Already exists
+844746,4998150,media_4.jpg,SKIPPED,JOB,Already exists
+844746,6281315,media_5.jpg,SKIPPED,CUSTOMER,Already exists
+844755,3507559,media_1.jpg,SKIPPED,JOB,Already exists
+844755,5253206,media_2.jpg,SKIPPED,CUSTOMER,Already exists
+844755,6289220,media_3.jpg,SKIPPED,CUSTOMER,Already exists
+844746,1101975,media_1.jpg,SUCCESS,JOB,
+844746,1971650,media_2.jpg,SKIPPED,CUSTOMER,Already exists
+844746,4587389,media_3.jpg,SKIPPED,JOB,Already exists
+844746,4998150,media_4.jpg,SKIPPED,JOB,Already exists
+844746,6281315,media_5.jpg,SKIPPED,CUSTOMER,Already exists
+844755,3507559,media_1.jpg,SKIPPED,JOB,Already exists
+844755,5253206,media_2.jpg,SKIPPED,CUSTOMER,Already exists
+844755,6289220,media_3.jpg,SKIPPED,CUSTOMER,Already exists
+844755,6313928,media_4.jpg,SKIPPED,JOB,Already exists
+844755,6313928,media_5.jpg,SKIPPED,JOB,Already exists
+844755,6313928,media_6.jpg,SKIPPED,JOB,Already exists
+844746,1101975,media_1.jpg,SKIPPED,JOB,Already exists
+844746,4587389,media_3.jpg,SKIPPED,JOB,Already exists
+844746,4998150,media_4.jpg,SKIPPED,JOB,Already exists
+844746,6281315,media_5.jpg,SKIPPED,CUSTOMER,Already exists
+844755,3507559,media_1.jpg,SKIPPED,JOB,Already exists
+844755,5253206,media_2.jpg,SKIPPED,CUSTOMER,Already exists
+844755,6289220,media_3.jpg,SKIPPED,CUSTOMER,Already exists
+844755,6313928,media_4.jpg,SKIPPED,JOB,Already exists
+844755,6313928,media_5.jpg,SKIPPED,JOB,Already exists
+844755,6313928,media_6.jpg,SKIPPED,JOB,Already exists
+844746,1101975,media_1.jpg,SKIPPED,JOB,Already exists
+844746,1971650,media_2.jpg,SKIPPED,CUSTOMER,Already exists
+844746,4587389,media_3.jpg,SKIPPED,JOB,Already exists
+844746,4998150,media_4.jpg,SKIPPED,JOB,Already exists
+844746,6281315,media_5.jpg,SKIPPED,CUSTOMER,Already exists
+844755,3507559,media_1.jpg,SKIPPED,JOB,Already exists
+844755,5253206,media_2.jpg,SKIPPED,CUSTOMER,Already exists
+844755,6289220,media_3.jpg,SKIPPED,CUSTOMER,Already exists
+844755,6313928,media_4.jpg,SKIPPED,JOB,Already exists
+844755,6313928,media_5.jpg,SKIPPED,JOB,Already exists
+844755,6313928,media_6.jpg,SKIPPED,JOB,Already exists

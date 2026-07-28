@@ -2,6 +2,9 @@ from inventory import Inventory
 from logger import MigrationLogger
 from stats import MigrationStats
 from resume import ResumeTracker
+from progress import progress
+from datetime import datetime, timedelta
+from cancel import cancel
 
 from servicetitan.browser import connect
 from servicetitan.job_search import JobSearcher
@@ -10,6 +13,7 @@ from servicetitan.uploader import Uploader
 
 from sera.downloader import SeraDownloader
 
+import time
 
 class MigrationEngine:
 
@@ -19,6 +23,9 @@ class MigrationEngine:
         self.stats = MigrationStats()
         self.current_job = None
         self.current_customer = None
+        self.uploaded = 0
+        self.skipped = 0
+        self.failed = 0
 
     def migrate_job(self, job):
 
@@ -43,6 +50,7 @@ class MigrationEngine:
 
             if self.job_search.open_job(job.job_number):
                 self.current_job = job.job_number
+                self.current_customer = None
             else:
                 self.current_job = None
 
@@ -54,6 +62,7 @@ class MigrationEngine:
 
             self.stats.uploaded_files(len(uploaded))
             self.stats.skipped_files(len(skipped))
+            self.stats.failed_files(len(failed))
 
             for file in uploaded:
                 self.logger.log(
@@ -74,6 +83,19 @@ class MigrationEngine:
                     "Already exists"
                 )
 
+            for file in failed:
+
+                self.stats.failed_files(1)
+
+                self.logger.log(
+                    job.legacy_id,
+                    job.job_number,
+                    file.name,
+                    "FAILED",
+                    "JOB",
+                    "Upload failed"
+                )
+
             return
 
         #
@@ -85,6 +107,8 @@ class MigrationEngine:
 
             if self.customer_search.open_customer(job.legacy_id):
                 self.current_customer = job.legacy_id
+                self.current_job = None
+                from progress import progress
             else:
                 self.current_customer = None
 
@@ -96,6 +120,7 @@ class MigrationEngine:
 
             self.stats.uploaded_files(len(uploaded))
             self.stats.skipped_files(len(skipped))
+            self.stats.failed_files(len(failed))
 
             for file in uploaded:
                 self.logger.log(
@@ -117,16 +142,34 @@ class MigrationEngine:
                     "Already exists"
                 )
 
+            for file in failed:
+
+                self.stats.failed_files(1)
+
+                self.logger.log(
+                    job.legacy_id,
+                    job.job_number,
+                    file.name,
+                    "FAILED",
+                    "CUSTOMER",
+                    "Upload failed"
+                )
+
             return
 
         #
         # Neither job nor customer found
         #
         print("FAILED")
+        print("Moving files to failed_media...")
 
         self.stats.failed_files(len(job.files))
 
         for file in job.files:
+            self.uploader.move_to_failed(
+                file,
+                "Customer Not Found"
+            )
             self.logger.log(
                 job.legacy_id,
                 job.job_number,
@@ -144,7 +187,10 @@ class MigrationEngine:
         jobs = inventory.build("sera_media")
 
         total_jobs = len(jobs)
+
         completed_jobs = 0
+
+        start_time = time.time()
 
         tracker = ResumeTracker()
 
@@ -155,7 +201,11 @@ class MigrationEngine:
         print(f"Found {len(jobs)} jobs.")
 
         print("Connecting to Edge...")
-        p, browser, context = connect()
+        from playwright.sync_api import sync_playwright
+
+        p = sync_playwright().start()
+
+        browser, context = connect(p)
 
         print("=" * 70)
         print("CONNECTED TO EDGE")
@@ -177,11 +227,11 @@ class MigrationEngine:
 
             print("\nSearching for ServiceTitan tab...")
 
-            for p in context.pages:
+            for st_page in context.pages:
 
-                print("Found:", p.url)
+                print("Found:", st_page.url)
 
-                url = p.url.lower()
+                url = st_page.url.lower()
 
                 if (
                     "servicetitan" in url
@@ -189,7 +239,7 @@ class MigrationEngine:
                     "st-app" in url
                 ):
 
-                    page = p
+                    page = st_page
 
                     break
 
@@ -228,6 +278,15 @@ class MigrationEngine:
 
                 for job in jobs:
 
+                    if cancel.is_cancelled():
+
+                        print()
+                        print("=" * 70)
+                        print("Migration cancelled by user.")
+                        print("=" * 70)
+
+                        break
+
                     #
                     # Skip until we reach the last completed job
                     #
@@ -251,14 +310,75 @@ class MigrationEngine:
                     print()
                     print("=" * 70)
                     print(f"Job {completed_jobs + 1} of {total_jobs}")
-                    print(f"Job Number : {job.job_number}")
-                    print(f"Legacy ID  : {job.legacy_id}")
-                    print(f"Files      : {len(job.files)}")
+                    print(f"Job Number: {job.job_number}")
+                    print(f"Legacy ID: {job.legacy_id}")
+                    print(f"Files: {len(job.files)}")
                     print("=" * 70)
 
-                    self.migrate_job(job)
+                    try:
+
+                        self.migrate_job(job)
+
+                    except Exception as e:
+
+                        print()
+                        print("=" * 70)
+                        print("UNEXPECTED JOB ERROR")
+                        print("=" * 70)
+                        print(f"Customer : {job.legacy_id}")
+                        print(f"Job      : {job.job_number}")
+                        print(f"Error    : {e}")
+
+                        self.stats.failed_files(len(job.files))
+
+                        for file in job.files:
+
+                            self.uploader.move_to_failed(
+                                file,
+                                "Unexpected Error"
+                            )
+
+                            self.logger.log(
+                                job.legacy_id,
+                                job.job_number,
+                                file.name,
+                                "FAILED",
+                                "",
+                                f"Unexpected Error: {e}"
+                            )
+
+                        completed_jobs += 1
+
+                        progress.progress(
+                            completed_jobs,
+                            total_jobs
+                        )
+
+                        continue
 
                     completed_jobs += 1
+
+                    progress.progress(completed_jobs, total_jobs)
+
+                    elapsed = time.time() - start_time
+
+                    #progress.elapsed(
+                    #    str(timedelta(seconds=int(elapsed)))
+                    #)
+
+                    average = elapsed / completed_jobs
+
+                    remaining = total_jobs - completed_jobs
+
+                    eta = datetime.now() + timedelta(
+                        seconds=average * remaining
+                    )
+
+                    progress.eta(
+                        eta.strftime("%I:%M %p")
+                    )
+
+                    progress.progress(completed_jobs, total_jobs)
 
                     percent = completed_jobs / total_jobs * 100
 

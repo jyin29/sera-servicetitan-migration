@@ -63,41 +63,35 @@ class CustomerSearcher:
 
         print(f"\nSearching for customer {legacy_id}...")
 
-        for attempt in range(2):
+        self._search(legacy_id)
 
-            if attempt:
-                print("Retrying search...")
+        customers = self.page.locator(
+            'a[data-fs-entity-type="Customer"]'
+        )
 
-            self._search(legacy_id)
+        count = customers.count()
 
-            customers = self.page.locator(
-                'a[data-fs-entity-type="Customer"]'
-            )
+        print(f"Customer results: {count}")
 
-            count = customers.count()
+        if count > 0:
 
-            print(f"Customer results: {count}")
+            customers.first.click()
 
-            if count > 0:
+            try:
+                self.page.wait_for_url(
+                    "**/customer/**",
+                    timeout=10000
+                )
+            except:
+                self.page.wait_for_timeout(1500)
 
-                customers.first.click()
-
-                try:
-                    self.page.wait_for_url(
-                        "**/customer/**",
-                        timeout=10000
-                    )
-                except:
-                    self.page.wait_for_timeout(1500)
-
-                self.page.keyboard.press("Escape")
-
-                self._reset_search()
-
-                return True
-
-            # Close search before retrying
             self.page.keyboard.press("Escape")
+
+            self._reset_search()
+
+            return True
+
+        self.page.keyboard.press("Escape")
 
         print("Customer not found.")
 

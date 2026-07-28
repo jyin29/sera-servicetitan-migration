@@ -294,7 +294,7 @@ def run(
 
     if limit > 0:
 
-        customer_ids = customer_ids[15:17]
+        customer_ids = customer_ids[:limit]
 
         progress.log(
             f"TEST MODE: Processing "

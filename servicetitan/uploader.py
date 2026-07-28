@@ -69,7 +69,7 @@ class Uploader:
 
         return False
 
-    def _upload_files(self, upload_selector: str, files):
+    def _upload_files(self, upload_selector: str, files, check_duplicates = True):
 
         uploaded = []
         skipped = []
@@ -118,13 +118,15 @@ class Uploader:
 
                 print("Upload input found.")
 
-                if self.attachment_exists(file.name):
+                if check_duplicates:
 
-                    print(f"Skipping existing file: {file.name}")
+                    if self.attachment_exists(file.name):
 
-                    skipped.append(file)
+                        print(f"Skipping existing file: {file.name}")
 
-                    continue
+                        skipped.append(file)
+
+                        continue
 
                 print(f"\nUploading:\n{file_path}")
 
@@ -236,7 +238,8 @@ class Uploader:
 
         return self._upload_files(
             '[data-tracking-id="crm-customer-add-attachment-button"] + input[type=file]',
-            files
+            files,
+            check_duplicates=False
         )
 
     def move_to_failed(self, file, reason):

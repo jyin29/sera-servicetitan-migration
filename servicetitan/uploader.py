@@ -108,13 +108,20 @@ class Uploader:
 
                 if upload.count() == 0:
 
-                    print("Upload input not found.")
+                    print("Upload input not found. Refreshing page...")
 
-                    failed.append(file)
+                    self.page.reload(wait_until="domcontentloaded")
+                    self.page.wait_for_timeout(3000)
 
-                    self.move_to_failed(file, "Upload failed")
+                    upload = self.page.locator(upload_selector)
 
-                    continue
+                    if upload.count() == 0:
+
+                        print("Upload input still not found.")
+
+                        failed.append(file)
+                        self.move_to_failed(file, "Upload failed")
+                        continue
 
                 print("Upload input found.")
 
@@ -229,7 +236,8 @@ class Uploader:
 
         return self._upload_files(
             "#job-upload-attachment-btn input[type=file]",
-            files
+            files,
+            check_duplicates=True
         )
 
     def upload_to_customer(self, files):

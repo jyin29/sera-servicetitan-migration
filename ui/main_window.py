@@ -7,6 +7,7 @@ from tkinter import filedialog, ttk, messagebox
 from test_sera import run
 import time
 from datetime import datetime, timedelta
+import sys
 
 class MainWindow:
 
@@ -16,6 +17,16 @@ class MainWindow:
         ctk.set_default_color_theme("blue")
 
         self.root = ctk.CTk()
+
+        if getattr(sys, "frozen", False):
+            base_path = Path(sys.executable).parent
+        else:
+            base_path = Path(__file__).resolve().parent.parent
+
+        icon_path = base_path / "assets" / "Sera_ServiceTitan_Icon_Dark.ico"
+
+        if icon_path.exists():
+            self.root.iconbitmap(str(icon_path))
 
         self.root.title("Sera → ServiceTitan Migration")
 
@@ -41,6 +52,10 @@ class MainWindow:
         self.progress_total = 0
 
         self.progress_unit = "Customers"
+
+        self.uploaded = 0
+        self.skipped = 0
+        self.failed = 0
 
     def cancel_clicked(self):
 
@@ -451,6 +466,10 @@ class MainWindow:
 
         self.uploaded = count
 
+        self.uploaded_label.configure(
+            text=str(count)
+        )
+
         self.root.after(
             0,
             lambda: self.uploaded_label.configure(
@@ -463,6 +482,10 @@ class MainWindow:
 
         self.skipped = count
 
+        self.skipped_label.configure(
+            text=str(count)
+        )
+
         self.root.after(
             0,
             lambda: self.skipped_label.configure(
@@ -474,6 +497,10 @@ class MainWindow:
     def set_failed(self, count):
 
         self.failed = count
+
+        self.failed_label.configure(
+            text=str(count)
+        )
 
         self.root.after(
             0,
@@ -611,9 +638,9 @@ class MainWindow:
                 f"""
             Migration Complete!
 
-            Uploaded : {self.uploaded_var.get()}
-            Skipped  : {self.skipped_var.get()}
-            Failed   : {self.failed_var.get()}
+            Uploaded : {self.uploaded}
+            Skipped  : {self.skipped}
+            Failed   : {self.failed}
 
             Any failed files have been moved to:
 

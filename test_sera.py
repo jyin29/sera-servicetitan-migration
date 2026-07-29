@@ -2,13 +2,15 @@ from live_migration import LiveMigration
 from playwright.sync_api import sync_playwright
 from pathlib import Path
 from openpyxl import load_workbook
-from resume_tracker import ResumeTracker
+from resume import ResumeTracker
 from datetime import datetime, timedelta
 from progress import progress
 from cancel import cancel
 import csv
 import time
 import re
+import os
+import shutil
 
 
 progress.log("Starting test_sera...")
@@ -22,13 +24,17 @@ EXCEL_FILE = Path("exports") / "CustomerContactReport-2026-07-22-58a68e.xlsx"
 
 BASE_URL = "https://grmetro.sera.tech/customers"
 
-DOWNLOAD_FOLDER = Path("sera_media")
+import os
 
-DOWNLOAD_FOLDER.mkdir(exist_ok=True)
+APP_DATA = Path(os.getenv("LOCALAPPDATA")) / "Sera ServiceTitan Migration"
 
-UPLOADED_FOLDER = Path("uploaded_media")
+APP_DATA.mkdir(parents=True, exist_ok=True)
 
-UPLOADED_FOLDER.mkdir(exist_ok=True)
+DOWNLOAD_FOLDER = APP_DATA / "sera_media"
+DOWNLOAD_FOLDER.mkdir(parents=True, exist_ok=True)
+
+UPLOADED_FOLDER = APP_DATA / "uploaded_media"
+UPLOADED_FOLDER.mkdir(parents=True, exist_ok=True)
 
 LOG_FILE = Path("download_log.csv")
 
@@ -324,12 +330,17 @@ def run(
 
             progress.log("Entered Playwright")
 
+            edge = (
+                shutil.which("msedge")
+                or r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
+                or r"C:\Program Files\Microsoft\Edge\Application\msedge.exe"
+            )
+
             context = p.chromium.launch_persistent_context(
-
-                "sera_browser_profile",
-
-                headless=False
-
+                str(APP_DATA / "sera_browser_profile"),
+                executable_path=edge,
+                channel="msedge",
+                headless=False,
             )
 
 

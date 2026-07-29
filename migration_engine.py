@@ -5,15 +5,19 @@ from resume import ResumeTracker
 from progress import progress
 from datetime import datetime, timedelta
 from cancel import cancel
+from pathlib import Path
 
-from servicetitan.browser import connect
+from servicetitan.browser import connect, wait_for_servicetitan, ensure_servicetitan_tab
 from servicetitan.job_search import JobSearcher
 from servicetitan.customer_search import CustomerSearcher
 from servicetitan.uploader import Uploader
 
 from sera.downloader import SeraDownloader
 
+from playwright.sync_api import sync_playwright
+
 import time
+import os
 
 class MigrationEngine:
 
@@ -23,9 +27,6 @@ class MigrationEngine:
         self.stats = MigrationStats()
         self.current_job = None
         self.current_customer = None
-        self.uploaded = 0
-        self.skipped = 0
-        self.failed = 0
 
     def migrate_job(self, job):
 
@@ -183,8 +184,10 @@ class MigrationEngine:
 
         print("Building inventory...")
 
+        APP_DATA = Path(os.getenv("LOCALAPPDATA")) / "Sera ServiceTitan Migration"
+
         inventory = Inventory()
-        jobs = inventory.build("sera_media")
+        jobs = inventory.build(str(APP_DATA / "sera_media"))
 
         total_jobs = len(jobs)
 
@@ -192,20 +195,29 @@ class MigrationEngine:
 
         start_time = time.time()
 
-        tracker = ResumeTracker()
-
-        last_job = tracker.load()
-
-        resume = last_job is None
+        p = sync_playwright().start()
 
         print(f"Found {len(jobs)} jobs.")
 
-        print("Connecting to Edge...")
-        from playwright.sync_api import sync_playwright
-
-        p = sync_playwright().start()
+        progress.action("Launching Microsoft Edge...")
 
         browser, context = connect(p)
+
+        progress.action("Opening ServiceTitan...")
+
+        ensure_servicetitan_tab(context)
+
+        progress.action("Waiting for login...")
+
+        page = wait_for_servicetitan(context)
+
+        progress.action("Connected to ServiceTitan.")
+
+        page.bring_to_front()
+
+        self.job_search = JobSearcher(page)
+        self.customer_search = CustomerSearcher(page)
+        self.uploader = Uploader(page)
 
         print("=" * 70)
         print("CONNECTED TO EDGE")
@@ -221,177 +233,156 @@ class MigrationEngine:
 
         print("Connected.")
 
+        
+
+        #
+        # TEST MODE
+        # Change [:1] to [:] when ready
+        #
+        tracker = ResumeTracker()
+
+        last_job = tracker.load()
+
+        resume = last_job is None
+        skip_current = last_job is not None
+
+        completed_jobs = 0
+
+        if last_job is not None:
+            for j in jobs:
+                if j.job_number == last_job:
+                    break
+                completed_jobs += 1
+
         try:
 
-            page = None
+            if limit:
 
-            print("\nSearching for ServiceTitan tab...")
+                jobs = jobs[:limit]
 
-            for st_page in context.pages:
+            completed_successfully = True
 
-                print("Found:", st_page.url)
+            for job in jobs:
 
-                url = st_page.url.lower()
-
-                if (
-                    "servicetitan" in url
-                    or
-                    "st-app" in url
-                ):
-
-                    page = st_page
-
-                    break
-
-            if page is None:
-
-                raise Exception(
-                    "No ServiceTitan tab found.\n"
-                    "Open ServiceTitan in the browser connected to port 9222."
-                )
-
-            print("Using:")
-            print(page.url)
-
-            page.bring_to_front()
-
-            self.job_search = JobSearcher(page)
-            self.customer_search = CustomerSearcher(page)
-            self.uploader = Uploader(page)
-
-            #
-            # TEST MODE
-            # Change [:1] to [:] when ready
-            #
-            tracker = ResumeTracker()
-
-            last_job = tracker.load()
-
-            resume = last_job is None
-            skip_current = last_job is not None
-
-            try:
-
-                if limit:
-
-                    jobs = jobs[:limit]
-
-                for job in jobs:
-
-                    if cancel.is_cancelled():
-
-                        print()
-                        print("=" * 70)
-                        print("Migration cancelled by user.")
-                        print("=" * 70)
-
-                        break
-
-                    #
-                    # Skip until we reach the last completed job
-                    #
-                    if not resume:
-
-                        if job.job_number == last_job:
-                            resume = True
-
-                        continue
-
-                    #
-                    # Skip the job we already finished
-                    #
-                    if skip_current:
-
-                        skip_current = False
-
-                        continue
-
+                if cancel.is_cancelled():
 
                     print()
                     print("=" * 70)
-                    print(f"Job {completed_jobs + 1} of {total_jobs}")
-                    print(f"Job Number: {job.job_number}")
-                    print(f"Legacy ID: {job.legacy_id}")
-                    print(f"Files: {len(job.files)}")
+                    print("Migration cancelled by user.")
                     print("=" * 70)
 
-                    try:
+                    completed_successfully = False
 
-                        self.migrate_job(job)
+                    break
 
-                    except Exception as e:
+                #
+                # Skip until we reach the last completed job
+                #
+                if not resume:
 
-                        print()
-                        print("=" * 70)
-                        print("UNEXPECTED JOB ERROR")
-                        print("=" * 70)
-                        print(f"Customer : {job.legacy_id}")
-                        print(f"Job      : {job.job_number}")
-                        print(f"Error    : {e}")
+                    if job.job_number == last_job:
+                        resume = True
 
-                        self.stats.failed_files(len(job.files))
+                    continue
 
-                        for file in job.files:
+                #
+                # Skip the job we already finished
+                #
+                if skip_current:
 
-                            self.uploader.move_to_failed(
-                                file,
-                                "Unexpected Error"
-                            )
+                    skip_current = False
 
-                            self.logger.log(
-                                job.legacy_id,
-                                job.job_number,
-                                file.name,
-                                "FAILED",
-                                "",
-                                f"Unexpected Error: {e}"
-                            )
+                    continue
 
-                        completed_jobs += 1
 
-                        progress.progress(
-                            completed_jobs,
-                            total_jobs
+                print()
+                print("=" * 70)
+                print(f"Job {completed_jobs + 1} of {total_jobs}")
+                print(f"Job Number: {job.job_number}")
+                print(f"Legacy ID: {job.legacy_id}")
+                print(f"Files: {len(job.files)}")
+                print("=" * 70)
+
+                tracker.save(job.job_number)
+
+                try:
+
+                    self.migrate_job(job)
+
+                except Exception as e:
+
+                    print()
+                    print("=" * 70)
+                    print("UNEXPECTED JOB ERROR")
+                    print("=" * 70)
+                    print(f"Customer : {job.legacy_id}")
+                    print(f"Job      : {job.job_number}")
+                    print(f"Error    : {e}")
+
+                    self.stats.failed_files(len(job.files))
+
+                    for file in job.files:
+
+                        self.uploader.move_to_failed(
+                            file,
+                            "Unexpected Error"
                         )
 
-                        continue
+                        self.logger.log(
+                            job.legacy_id,
+                            job.job_number,
+                            file.name,
+                            "FAILED",
+                            "",
+                            f"Unexpected Error: {e}"
+                        )
 
                     completed_jobs += 1
 
-                    progress.progress(completed_jobs, total_jobs)
-
-                    elapsed = time.time() - start_time
-
-                    #progress.elapsed(
-                    #    str(timedelta(seconds=int(elapsed)))
-                    #)
-
-                    average = elapsed / completed_jobs
-
-                    remaining = total_jobs - completed_jobs
-
-                    eta = datetime.now() + timedelta(
-                        seconds=average * remaining
+                    progress.progress(
+                        completed_jobs,
+                        total_jobs
                     )
 
-                    progress.eta(
-                        eta.strftime("%I:%M %p")
-                    )
+                    continue
 
-                    progress.progress(completed_jobs, total_jobs)
+                completed_jobs += 1
 
-                    percent = completed_jobs / total_jobs * 100
+                progress.progress(completed_jobs, total_jobs)
 
-                    print(
-                        f"Progress: {completed_jobs}/{total_jobs} "
-                        f"({percent:.1f}%)"
-                    )
+                elapsed = time.time() - start_time
 
-                    tracker.save(job.job_number)
+                #progress.elapsed(
+                #    str(timedelta(seconds=int(elapsed)))
+                #)
 
-            except KeyboardInterrupt:
-            
-                print("/nMigration interrupted.")
+                average = elapsed / completed_jobs
+
+                remaining = total_jobs - completed_jobs
+
+                eta = datetime.now() + timedelta(
+                    seconds=average * remaining
+                )
+
+                progress.eta(
+                    eta.strftime("%I:%M %p")
+                )
+
+                progress.progress(completed_jobs, total_jobs)
+
+                percent = completed_jobs / total_jobs * 100
+
+                print(
+                    f"Progress: {completed_jobs}/{total_jobs} "
+                    f"({percent:.1f}%)"
+                )
+
+            if completed_successfully:
+                tracker.clear()
+
+        except KeyboardInterrupt:
+        
+            print("\nMigration interrupted.")
 
             self.stats.print_summary()
 
@@ -403,6 +394,6 @@ class MigrationEngine:
             print("=" * 70)
 
         finally:
-            tracker.clear()
+            #tracker.clear()
             browser.close()
             p.stop()

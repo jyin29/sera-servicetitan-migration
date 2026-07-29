@@ -1,13 +1,86 @@
-# sera-servicetitan-migration
-Migrator tool from Sera to ServiceTitan
+# Sera → ServiceTitan Migration Toolkit
 
-Requirements:
-playwright >= 1.55.0
-pandas >= 2.3.0
-openpyxl >= 3.1.5
-customtkinter >= 5.2.2
-pillow >= 11.3.0
-loguru >= 0.7.3
-sqlalchemy >= 2.0.43
-python-dateutil >= 2.9.0
-tqdm >= 4.67.1
+A desktop application for migrating customer and job attachments from Sera into ServiceTitan.
+
+## Features
+
+- Downloads attachments from Sera
+- Uploads attachments into ServiceTitan
+- Job-level resume support
+- Duplicate detection
+- Progress tracking
+- GUI interface
+- Microsoft Edge automation via Playwright
+- Automatic recovery after interruption
+
+## Requirements
+
+- Windows 10 or Windows 11
+- Microsoft Edge
+- Python 3.12+
+- Playwright
+
+## Installation
+
+```bash
+pip install -r requirements.txt
+playwright install
+```
+
+## Running
+
+```bash
+python main.py
+```
+
+## Building
+
+```bash
+pyinstaller app.spec
+```
+
+or
+
+```bash
+build.bat
+```
+
+## Runtime Data
+
+Application data is stored in
+
+```
+%LOCALAPPDATA%\Sera ServiceTitan Migration\
+```
+
+including
+
+- browser profile
+- migration logs
+- resume files
+- downloaded media
+
+No runtime files are stored in the installation directory.
+
+## Project Structure
+
+```
+ui/
+sera/
+servicetitan/
+```
+
+Main modules
+
+- Migration Engine
+- Downloader
+- Inventory Builder
+- Resume Tracker
+- Migration Logger
+- Browser Automation
+
+## License
+
+Private / Proprietary
+
+Not licensed for redistribution.

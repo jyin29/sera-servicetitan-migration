@@ -1,0 +1,129 @@
+##############################
+# Python
+##############################
+
+__pycache__/
+*.py[cod]
+*$py.class
+
+##############################
+# Virtual Environments
+##############################
+
+.venv/
+venv/
+env/
+ENV/
+
+##############################
+# VS Code / JetBrains
+##############################
+
+.vscode/
+.idea/
+
+##############################
+# OS Files
+##############################
+
+.DS_Store
+Thumbs.db
+desktop.ini
+
+##############################
+# Build Output
+##############################
+
+build/
+dist/
+Output/
+
+*.spec
+
+##############################
+# Python Packaging
+##############################
+
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+
+##############################
+# Runtime Data
+##############################
+
+sera_media/
+uploaded_media/
+failed_media/
+
+migration_log.csv
+download.csv
+
+resume.txt
+resume_customer.txt
+
+##############################
+# Browser Profiles
+##############################
+
+app_profile/
+edge_migration_profile/
+playwright_profile/
+app_profile/
+edge_migration_profile/
+playwright_profile/
+sera_browser_profile/
+*_browser_profile/
+
+##############################
+# Logs
+##############################
+
+*.log
+logs/
+log/
+
+##############################
+# Playwright
+##############################
+
+playwright/.cache/
+.playwright/
+
+##############################
+# Environment Variables
+##############################
+
+.env
+.env.*
+!.env.example
+
+##############################
+# Coverage / Testing
+##############################
+
+.pytest_cache/
+.coverage
+htmlcov/
+
+##############################
+# Installer
+##############################
+
+*.exe
+*.msi
+
+##############################
+# Misc
+##############################
+
+*.tmp
+*.bak
+*.old
+
+##############################
+# ChatGPT Upload Files
+##############################
+
+Pasted*
+f_000*

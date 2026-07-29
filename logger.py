@@ -1,4 +1,5 @@
 import csv
+import os
 from pathlib import Path
 
 
@@ -6,7 +7,10 @@ class MigrationLogger:
 
     def __init__(self):
 
-        self.path = Path("migration_log.csv")
+        app_data = Path(os.getenv("LOCALAPPDATA")) / "Sera ServiceTitan Migration"
+        app_data.mkdir(parents=True, exist_ok=True)
+
+        self.path = app_data / "migration_log.csv"
 
         if not self.path.exists():
 

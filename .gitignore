@@ -58,6 +58,7 @@ failed_media/
 
 migration_log.csv
 download.csv
+download_log.csv
 
 resume.txt
 resume_customer.txt

@@ -30,7 +30,7 @@ playwright install
 ## Running
 
 ```bash
-python main.py
+python app.py
 ```
 
 ## Building

@@ -1,5 +1,5 @@
 #define MyAppName "Sera ServiceTitan Migration"
-#define MyAppVersion "1.3"
+#define MyAppVersion "1.4"
 #define MyAppPublisher "JYStudios"
 #define MyAppExeName "Sera ServiceTitan Migration.exe"
 
@@ -11,7 +11,7 @@ AppPublisher={#MyAppPublisher}
 DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 OutputDir=Output
-OutputBaseFilename=Sera_ServiceTitan_Migration_Setup_v1.3
+OutputBaseFilename=Sera_ServiceTitan_Migration_Setup_v1.4
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern

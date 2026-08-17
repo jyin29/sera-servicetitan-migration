@@ -4,7 +4,6 @@ from playwright.sync_api import sync_playwright
 from servicetitan.browser import connect, wait_for_servicetitan
 from servicetitan.customer_search import CustomerSearcher
 
-# First destructive test: exactly one known customer.
 CUSTOMER_IDS = ["845113"]
 DRY_RUN = False
 MAX_DELETIONS_PER_CUSTOMER = 100
@@ -13,34 +12,23 @@ MAX_DELETIONS_PER_CUSTOMER = 100
 def scan_media(page):
     cards = page.locator(".qa-attachment-item")
     groups = defaultdict(list)
-
     for i in range(cards.count()):
         card = cards.nth(i)
         title = card.locator(".qa-title")
         if title.count() == 0:
             continue
-
         name = title.first.inner_text().strip().lower()
         if not name:
             continue
-
         created = card.locator(".qa-created-on")
         created_on = created.first.inner_text().strip() if created.count() else ""
         groups[name].append({"title": name, "created_on": created_on})
-
     return {name: items for name, items in groups.items() if len(items) > 1}
 
 
 def delete_one_duplicate(page, title):
-    """Delete one matching card, preserving the last/oldest displayed copy.
-
-    ServiceTitan displays this media newest-first in the customer tested, so the
-    first matching card is an extra later upload. We rescan after every delete;
-    no stale indexes are retained.
-    """
     cards = page.locator(".qa-attachment-item")
     matches = []
-
     for i in range(cards.count()):
         card = cards.nth(i)
         heading = card.locator(".qa-title")
@@ -56,15 +44,16 @@ def delete_one_duplicate(page, title):
         raise RuntimeError(f"Delete button missing for {title}")
 
     before = len(matches)
-    delete_button.first.click()
-    page.wait_for_timeout(500)
 
-    # Use the visible destructive confirmation button, if ServiceTitan shows one.
-    confirm = page.locator('button.Button--red:visible').filter(has_text="Delete")
-    if confirm.count():
-        confirm.last.click()
+    try:
+        with page.expect_dialog(timeout=5000) as dialog_info:
+            delete_button.first.click()
+        dialog = dialog_info.value
+        print(f"Confirmation: {dialog.message}")
+        dialog.accept()
+    except Exception as exc:
+        raise RuntimeError(f"Could not confirm deletion of '{title}': {exc}") from exc
 
-    # Wait for the media grid to rerender, then verify exactly one copy disappeared.
     for _ in range(20):
         page.wait_for_timeout(500)
         now = 0
@@ -81,7 +70,6 @@ def delete_one_duplicate(page, title):
 
 def clean_customer(page, customer_id):
     deleted = 0
-
     while True:
         duplicate_groups = scan_media(page)
         if not duplicate_groups:
@@ -93,9 +81,6 @@ def clean_customer(page, customer_id):
         print(f"Customer {customer_id}: {title} has {copies} copies")
 
         if DRY_RUN:
-            print(f"DRY RUN: would remove {copies - 1} copy/copies of {title}")
-            # Remove this title from consideration without deleting by returning
-            # the scan result to the operator; dry-run is intentionally one pass.
             for other, items in duplicate_groups.items():
                 print(f"  {other}: {len(items)} copies -> would keep 1")
             return sum(len(items) - 1 for items in duplicate_groups.values())
@@ -127,7 +112,6 @@ with sync_playwright() as p:
     browser, context = connect(p)
     page = wait_for_servicetitan(context)
     page.bring_to_front()
-
     total_deleted = 0
     failures = []
 

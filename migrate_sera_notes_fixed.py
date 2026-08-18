@@ -1,93 +1,120 @@
-"""Run the full Sera note migration with exact ServiceTitan selectors and duplicate protection.
+"""Run the full Sera note migration from an exported Sera Jobs Report.
 
-Before migrating, this runner discovers job IDs directly from Sera's All Jobs report so
-note migration is not limited to jobs that happened to exist in the media/database logs.
+The JobsReport Excel export is the source of truth for job discovery. This avoids
+limiting the migration to jobs that happened to appear in the old media/database logs.
 
 Duplicate rule:
 - automated copies are caught by our migration marker
 - old/manual copies are caught ONLY when the exact original Sera message text is
   present on the ServiceTitan destination page; no fuzzy/partial matching
 """
-import re
+from pathlib import Path
 
-from playwright.sync_api import sync_playwright
+from openpyxl import load_workbook
 
 import migrate_sera_notes as migration
-from sera.notes import get_or_open_sera_page
-from servicetitan.browser import connect
 
 
 migration.MAX_JOBS = None
-SERA_ALL_JOBS_URL = "https://grmetro.sera.tech/reports/jobs?all=true"
 
 
-def discover_all_sera_job_ids():
-    """Discover every job linked by Sera's All Jobs report using the logged-in browser."""
-    found = set()
-    print("Opening Sera All Jobs report to discover the complete job list...")
-
-    with sync_playwright() as p:
-        browser, context = connect(p)
-        page = get_or_open_sera_page(context)
-        page.goto(SERA_ALL_JOBS_URL, wait_until="domcontentloaded", timeout=60000)
-        page.wait_for_timeout(3000)
-
-        # all=true normally renders the whole report. Scroll repeatedly anyway so lazy
-        # rows/virtualized tables have a chance to materialize before extracting links.
-        stable_rounds = 0
-        previous_count = -1
-        for _ in range(80):
-            hrefs = page.locator('a[href*="/jobs/"]').evaluate_all(
-                "els => els.map(el => el.getAttribute('href') || '')"
-            )
-            for href in hrefs:
-                match = re.search(r"/jobs/(\d+)", href)
-                if match:
-                    found.add(match.group(1))
-
-            # Also inspect rendered HTML in case the job URL is attached to a non-anchor
-            # element or framework router metadata.
+def find_jobs_report():
+    """Find the newest Sera JobsReport .xlsx in the normal local locations."""
+    roots = [
+        Path.cwd(),
+        Path(__file__).resolve().parent,
+        Path.home() / "Downloads",
+        migration.APP_DATA,
+    ]
+    candidates = []
+    seen = set()
+    for root in roots:
+        if not root.exists():
+            continue
+        for path in root.glob("JobsReport*.xlsx"):
             try:
-                html = page.locator("body").inner_html()
-                found.update(re.findall(r"/jobs/(\d+)", html))
+                resolved = path.resolve()
             except Exception:
-                pass
+                resolved = path
+            if resolved in seen:
+                continue
+            seen.add(resolved)
+            candidates.append(path)
 
-            if len(found) == previous_count:
-                stable_rounds += 1
-            else:
-                stable_rounds = 0
-                previous_count = len(found)
+    if not candidates:
+        raise RuntimeError(
+            "No Sera JobsReport*.xlsx found. Download/export the Sera Jobs Report "
+            "and leave it in Downloads (or put it beside this script), then run again."
+        )
 
-            page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-            page.wait_for_timeout(400)
-            if stable_rounds >= 5:
-                break
+    # If there are multiple exports, use the newest one.
+    return max(candidates, key=lambda p: p.stat().st_mtime)
 
-        print(f"Sera All Jobs discovery found {len(found)} job IDs.")
-        if not found:
-            print("WARNING: All Jobs report yielded no job IDs; retaining local-source fallback.")
 
-        try:
-            browser.close()
-        except Exception:
-            pass
+def load_jobs_report_ids(path):
+    """Read every job ID from the exact 'Job' column in a Sera Jobs Report export."""
+    print(f"Using Sera Jobs Report: {path}")
+    workbook = load_workbook(path, read_only=True, data_only=True)
+    sheet = workbook.active
 
+    rows = sheet.iter_rows(values_only=True)
+    try:
+        headers = [str(value or "").strip() for value in next(rows)]
+    except StopIteration:
+        workbook.close()
+        raise RuntimeError("Jobs Report is empty.")
+
+    if "Job" not in headers:
+        workbook.close()
+        raise RuntimeError(
+            f"Jobs Report does not contain the expected 'Job' column. Columns: {headers}"
+        )
+
+    job_index = headers.index("Job")
+    found = set()
+    invalid = 0
+
+    for row in rows:
+        if job_index >= len(row):
+            continue
+        value = row[job_index]
+        job_id = migration.clean_id(value)
+        if not job_id:
+            continue
+        if job_id.isdigit():
+            found.add(job_id)
+        else:
+            invalid += 1
+
+    workbook.close()
+
+    if not found:
+        raise RuntimeError("Jobs Report contained zero usable numeric job IDs; refusing to fall back to the old 335-job subset.")
+
+    print(f"Sera Jobs Report contains {len(found)} unique job IDs.")
+    if invalid:
+        print(f"WARNING: ignored {invalid} non-numeric Job value(s).")
     return found
 
 
 def install_complete_job_discovery():
-    """Merge Sera report IDs with the existing local sources used by the migrator."""
+    """Make the Jobs Report the master job list, with local IDs added only as a safety union."""
+    report_path = find_jobs_report()
+    report_ids = load_jobs_report_ids(report_path)
     local_loader = migration.load_all_job_ids
-    discovered = discover_all_sera_job_ids()
 
     def load_complete_job_ids():
         local = set(local_loader())
-        combined = local | discovered
+        combined = report_ids | local
+        extra_local = local - report_ids
         print(
-            f"Job discovery: {len(discovered)} from Sera report + "
-            f"{len(local)} from local sources = {len(combined)} unique jobs."
+            f"Job discovery: {len(report_ids)} from Jobs Report + "
+            f"{len(extra_local)} extra local-only = {len(combined)} unique jobs."
         )
+        if len(report_ids) < 1000:
+            raise RuntimeError(
+                f"Jobs Report yielded only {len(report_ids)} jobs. Expected the full export; refusing bulk WRITE run."
+            )
         return sorted(combined, key=int, reverse=True)
 
     migration.load_all_job_ids = load_complete_job_ids

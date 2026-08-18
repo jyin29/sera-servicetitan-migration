@@ -12,6 +12,7 @@ from servicetitan.customer_search import CustomerSearcher
 
 APP_DATA = Path(os.getenv("LOCALAPPDATA")) / "Sera ServiceTitan Migration"
 MIGRATION_LOG = APP_DATA / "migration_log.csv"
+FAILED_DIR = APP_DATA / "failed_notes"
 MEDIA_ROOTS = [APP_DATA / "sera_media", Path(__file__).resolve().parent / "sera_media"]
 MIGRATION_DATABASES = [APP_DATA / "migration.db", Path(__file__).resolve().parent / "database" / "migration.db"]
 
@@ -68,6 +69,25 @@ def format_note(job_id, comment):
     author = comment.get("author") or "Unknown"
     marker = f"[Migrated from Sera | Job {job_id} | {stamp} | {author}]"
     return marker, f"{marker}\n\n{comment['text'].strip()}"
+
+
+def save_failed_job(job_id, job_data, reason):
+    FAILED_DIR.mkdir(parents=True, exist_ok=True)
+    path = FAILED_DIR / f"Job_{job_id}.txt"
+    lines = [
+        f"Sera Job: {job_id}",
+        f"Sera Customer: {job_data.get('customer_name', '')}",
+        f"Sera Customer ID / ServiceTitan Legacy ID: {job_data.get('sera_customer_id', '')}",
+        f"Reason: {reason}",
+        "",
+        "COMMENTS",
+        "=" * 80,
+    ]
+    for number, comment in enumerate(job_data.get("comments", []), start=1):
+        marker, note_text = format_note(job_id, comment)
+        lines.extend([f"Comment {number}", note_text, "", "-" * 80])
+    path.write_text("\n".join(lines), encoding="utf-8")
+    print(f"Saved unresolved note(s) to: {path}")
 
 
 def page_contains_marker(page, marker):
@@ -186,14 +206,8 @@ def main():
             sera_customer_name = job_data["customer_name"]
             comments = job_data["comments"]
             total_notes += len(comments)
-
-            # In this migration, Sera's customer ID is the customer's legacy ID in
-            # ServiceTitan. Read it directly from /customers/<id> on the Sera job.
             legacy_id = sera_customer_id
-            mapping_source = "Sera customer link (Sera customer ID = ServiceTitan Legacy ID)"
 
-            # Old migration mappings remain only as a sanity check. They must never
-            # silently redirect this job to a different customer.
             old_legacy_id = old_job_map.get(job_id)
             if old_legacy_id and old_legacy_id != legacy_id:
                 print(f"WARNING: old migration data says Legacy ID {old_legacy_id}, but Sera job page says customer ID {legacy_id}. Using Sera job page.")
@@ -201,7 +215,7 @@ def main():
             print(f"Sera customer: {sera_customer_name}")
             print(f"Sera customer ID: {sera_customer_id}")
             print(f"ServiceTitan Legacy ID: {legacy_id}")
-            print(f"Mapping source: {mapping_source}")
+            print("Mapping source: Sera customer link (Sera customer ID = ServiceTitan Legacy ID)")
             print(f"Found {len(comments)} Sera comment(s)")
 
             if not comments:
@@ -217,14 +231,20 @@ def main():
             destination = "JOB" if job_found else None
             if not job_found:
                 print(f"Job not found; falling back to customer Legacy ID {legacy_id}...")
+                customer_found = False
                 try:
-                    if customer_search.open_customer(legacy_id):
-                        destination = "CUSTOMER"
-                    else:
-                        failures.append((job_id, f"ServiceTitan customer {legacy_id} not found"))
-                        continue
+                    customer_found = customer_search.open_customer(legacy_id)
+                    if not customer_found:
+                        customer_found = customer_search.open_customer_by_name(sera_customer_name)
                 except Exception as exc:
-                    failures.append((job_id, f"Customer search error: {exc}"))
+                    print(f"Customer search error: {exc}")
+
+                if customer_found:
+                    destination = "CUSTOMER"
+                else:
+                    reason = f"No safe ServiceTitan match by Legacy ID {legacy_id} or customer name {sera_customer_name}"
+                    failures.append((job_id, reason))
+                    save_failed_job(job_id, job_data, reason)
                     continue
 
             for number, comment in enumerate(comments, start=1):
@@ -239,8 +259,10 @@ def main():
                     else:
                         completed += 1
                 except Exception as exc:
+                    reason = f"Comment {number}: {exc}"
                     print(f"FAILED comment {number}: {exc}")
-                    failures.append((job_id, f"Comment {number}: {exc}"))
+                    failures.append((job_id, reason))
+                    save_failed_job(job_id, job_data, reason)
                     break
 
         print("=" * 80)
@@ -249,6 +271,7 @@ def main():
         print(f"Completed/would complete: {completed}")
         print(f"Already present/skipped: {skipped}")
         print(f"Failures: {len(failures)}")
+        print(f"Failed-note folder: {FAILED_DIR}")
         for job_id, reason in failures:
             print(f"- {job_id}: {reason}")
         print("=" * 80)

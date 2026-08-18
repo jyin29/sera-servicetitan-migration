@@ -27,7 +27,54 @@ def extract_customer(page):
     }
 
 
+def expand_all_comments(page):
+    """Expand every visible Sera 'See more' control before reading comment text."""
+    # Work in rounds because expanding one comment can reveal/re-render additional controls.
+    for _ in range(20):
+        buttons = page.get_by_text(re.compile(r"^\s*see more\s*$", re.I), exact=False)
+        visible = []
+        for i in range(buttons.count()):
+            item = buttons.nth(i)
+            try:
+                if item.is_visible():
+                    visible.append(item)
+            except Exception:
+                pass
+
+        if not visible:
+            return
+
+        clicked = 0
+        # Click from the end so DOM changes are less likely to invalidate earlier indexes.
+        for item in reversed(visible):
+            try:
+                item.scroll_into_view_if_needed()
+                item.click(timeout=3000)
+                clicked += 1
+                page.wait_for_timeout(100)
+            except Exception:
+                # A framework re-render may detach a locator. The next round will retry it.
+                pass
+
+        if clicked == 0:
+            raise RuntimeError("Sera has visible 'See more' comment controls but none could be expanded")
+
+    remaining = page.get_by_text(re.compile(r"^\s*see more\s*$", re.I), exact=False)
+    for i in range(remaining.count()):
+        try:
+            if remaining.nth(i).is_visible():
+                raise RuntimeError("Sera comments still contain visible 'See more' controls after expansion")
+        except RuntimeError:
+            raise
+        except Exception:
+            pass
+
+
 def extract_comments(page):
+    # Never extract truncated comment bodies. If Sera exposes a See more control,
+    # expand it first so both migration and exact duplicate detection use the full message.
+    expand_all_comments(page)
+
     comments = []
     groups = page.locator(".comment-group")
 

@@ -1,5 +1,6 @@
 import csv
 import os
+import sqlite3
 from pathlib import Path
 
 from playwright.sync_api import sync_playwright
@@ -11,7 +12,18 @@ from servicetitan.customer_search import CustomerSearcher
 
 APP_DATA = Path(os.getenv("LOCALAPPDATA")) / "Sera ServiceTitan Migration"
 MIGRATION_LOG = APP_DATA / "migration_log.csv"
-SERA_MEDIA = APP_DATA / "sera_media"
+
+# The project has used both of these media locations over its lifetime. Check both.
+MEDIA_ROOTS = [
+    APP_DATA / "sera_media",
+    Path(__file__).resolve().parent / "sera_media",
+]
+
+# The original project database stores Job.sera_job_number -> Customer.legacy_id.
+MIGRATION_DATABASES = [
+    APP_DATA / "migration.db",
+    Path(__file__).resolve().parent / "database" / "migration.db",
+]
 
 # First end-to-end test. Keep this to one job until verified.
 JOB_IDS = ["6505724"]
@@ -20,22 +32,82 @@ JOB_IDS = ["6505724"]
 DRY_RUN = True
 
 
+def add_mapping(mapping, sources, job_id, legacy_id, source):
+    job_id = str(job_id or "").strip()
+    legacy_id = str(legacy_id or "").strip()
+    if not job_id or not legacy_id or legacy_id.lower() == "none":
+        return
+
+    if job_id not in mapping:
+        mapping[job_id] = legacy_id
+        sources[job_id] = source
+    elif mapping[job_id] != legacy_id:
+        print(
+            f"WARNING: conflicting Legacy IDs for Sera job {job_id}: "
+            f"keeping {mapping[job_id]} from {sources[job_id]}, "
+            f"ignoring {legacy_id} from {source}"
+        )
+
+
+def load_from_database(mapping, sources, db_path):
+    if not db_path.exists():
+        return
+
+    try:
+        connection = sqlite3.connect(str(db_path))
+        cursor = connection.cursor()
+        cursor.execute(
+            """
+            SELECT jobs.sera_job_number, customers.legacy_id
+            FROM jobs
+            JOIN customers ON customers.id = jobs.customer_id
+            WHERE jobs.sera_job_number IS NOT NULL
+              AND customers.legacy_id IS NOT NULL
+            """
+        )
+        for job_id, legacy_id in cursor.fetchall():
+            add_mapping(mapping, sources, job_id, legacy_id, f"database {db_path}")
+        connection.close()
+    except Exception as exc:
+        print(f"Could not read customer mapping database {db_path}: {exc}")
+
+
 def load_job_to_customer_map():
     mapping = {}
+    sources = {}
 
+    # Strongest source: original migration database. The schema explicitly relates
+    # jobs.sera_job_number to the owning customer, which carries legacy_id.
+    seen_databases = set()
+    for db_path in MIGRATION_DATABASES:
+        resolved = str(db_path.resolve())
+        if resolved in seen_databases:
+            continue
+        seen_databases.add(resolved)
+        load_from_database(mapping, sources, db_path)
+
+    # Next use migration_log.csv for jobs that actually produced media log rows.
     if MIGRATION_LOG.exists():
         with MIGRATION_LOG.open("r", newline="", encoding="utf-8-sig") as f:
             reader = csv.DictReader(f)
             for row in reader:
-                job_id = (row.get("Job Number") or "").strip()
-                legacy_id = (row.get("Legacy ID") or "").strip()
-                if job_id and legacy_id:
-                    mapping.setdefault(job_id, legacy_id)
+                add_mapping(
+                    mapping,
+                    sources,
+                    row.get("Job Number"),
+                    row.get("Legacy ID"),
+                    f"migration log {MIGRATION_LOG}",
+                )
 
-    # Fallback to the original downloaded folder structure. This does not require
-    # files to still exist inside the Job_* folder.
-    if SERA_MEDIA.exists():
-        for customer_dir in SERA_MEDIA.glob("Customer_*"):
+    # Last fallback: recover mapping from Customer_<legacy>/Job_<sera job> folders.
+    seen_roots = set()
+    for media_root in MEDIA_ROOTS:
+        resolved = str(media_root.resolve())
+        if resolved in seen_roots or not media_root.exists():
+            continue
+        seen_roots.add(resolved)
+
+        for customer_dir in media_root.glob("Customer_*"):
             if not customer_dir.is_dir():
                 continue
             legacy_id = customer_dir.name.replace("Customer_", "", 1).strip()
@@ -43,10 +115,9 @@ def load_job_to_customer_map():
                 if not job_dir.is_dir():
                     continue
                 job_id = job_dir.name.replace("Job_", "", 1).strip()
-                if job_id and legacy_id:
-                    mapping.setdefault(job_id, legacy_id)
+                add_mapping(mapping, sources, job_id, legacy_id, f"media folder {job_dir}")
 
-    return mapping
+    return mapping, sources
 
 
 def format_note(job_id, comment):
@@ -103,7 +174,6 @@ def fill_editor(editor, text):
 
 
 def click_single_save_button(page):
-    # Restrict to visible enabled buttons whose text strongly indicates submit/save.
     buttons = page.locator("button:visible")
     matches = []
 
@@ -195,7 +265,7 @@ def add_customer_note(page, note_text, marker):
 
 
 def main():
-    job_to_customer = load_job_to_customer_map()
+    job_to_customer, mapping_sources = load_job_to_customer_map()
 
     with sync_playwright() as p:
         browser, context = connect(p)
@@ -216,6 +286,8 @@ def main():
             print(f"SERA NOTE MIGRATION: job {job_id}")
             legacy_id = job_to_customer.get(job_id)
             print(f"Legacy ID: {legacy_id or 'not found'}")
+            if legacy_id:
+                print(f"Mapping source: {mapping_sources.get(job_id, 'unknown')}")
             print(f"Mode: {'DRY RUN' if DRY_RUN else 'WRITE'}")
             print("=" * 80)
 
@@ -242,6 +314,7 @@ def main():
                     print("Cannot fall back to customer because Legacy ID is unavailable.")
                     continue
 
+                print(f"Job not found; falling back to customer Legacy ID {legacy_id}...")
                 try:
                     if customer_search.open_customer(legacy_id):
                         destination = "CUSTOMER"

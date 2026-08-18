@@ -1,3 +1,5 @@
+import re
+
 SERA_JOB_URL = "https://grmetro.sera.tech/jobs/{job_id}"
 
 
@@ -6,6 +8,23 @@ def get_or_open_sera_page(context):
         if "grmetro.sera.tech" in page.url.lower():
             return page
     return context.new_page()
+
+
+def extract_customer(page):
+    link = page.locator('a[data-cy="customer-header-link"]').first
+    link.wait_for(state="visible", timeout=15000)
+
+    href = (link.get_attribute("href") or "").strip()
+    name = link.inner_text().strip()
+    match = re.search(r"/customers/(\d+)", href)
+    if not match:
+        raise RuntimeError(f"Could not extract Sera customer ID from href: {href!r}")
+
+    return {
+        "sera_customer_id": match.group(1),
+        "customer_name": name,
+        "href": href,
+    }
 
 
 def extract_comments(page):
@@ -55,13 +74,19 @@ def extract_comments(page):
     return comments
 
 
-def load_job_comments(page, job_id):
+def load_job_data(page, job_id):
     page.goto(SERA_JOB_URL.format(job_id=job_id), wait_until="domcontentloaded")
     page.wait_for_timeout(2500)
 
-    try:
-        page.locator(".comment-group").first.wait_for(state="visible", timeout=15000)
-    except Exception:
-        return []
+    customer = extract_customer(page)
+    comments = extract_comments(page)
 
-    return extract_comments(page)
+    return {
+        "job_id": str(job_id),
+        **customer,
+        "comments": comments,
+    }
+
+
+def load_job_comments(page, job_id):
+    return load_job_data(page, job_id)["comments"]

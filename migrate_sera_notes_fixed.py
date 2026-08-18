@@ -1,14 +1,96 @@
 """Run the full Sera note migration with exact ServiceTitan selectors and duplicate protection.
 
+Before migrating, this runner discovers job IDs directly from Sera's All Jobs report so
+note migration is not limited to jobs that happened to exist in the media/database logs.
+
 Duplicate rule:
 - automated copies are caught by our migration marker
 - old/manual copies are caught ONLY when the exact original Sera message text is
   present on the ServiceTitan destination page; no fuzzy/partial matching
 """
+import re
+
+from playwright.sync_api import sync_playwright
+
 import migrate_sera_notes as migration
+from sera.notes import get_or_open_sera_page
+from servicetitan.browser import connect
 
 
 migration.MAX_JOBS = None
+SERA_ALL_JOBS_URL = "https://grmetro.sera.tech/reports/jobs?all=true"
+
+
+def discover_all_sera_job_ids():
+    """Discover every job linked by Sera's All Jobs report using the logged-in browser."""
+    found = set()
+    print("Opening Sera All Jobs report to discover the complete job list...")
+
+    with sync_playwright() as p:
+        browser, context = connect(p)
+        page = get_or_open_sera_page(context)
+        page.goto(SERA_ALL_JOBS_URL, wait_until="domcontentloaded", timeout=60000)
+        page.wait_for_timeout(3000)
+
+        # all=true normally renders the whole report. Scroll repeatedly anyway so lazy
+        # rows/virtualized tables have a chance to materialize before extracting links.
+        stable_rounds = 0
+        previous_count = -1
+        for _ in range(80):
+            hrefs = page.locator('a[href*="/jobs/"]').evaluate_all(
+                "els => els.map(el => el.getAttribute('href') || '')"
+            )
+            for href in hrefs:
+                match = re.search(r"/jobs/(\d+)", href)
+                if match:
+                    found.add(match.group(1))
+
+            # Also inspect rendered HTML in case the job URL is attached to a non-anchor
+            # element or framework router metadata.
+            try:
+                html = page.locator("body").inner_html()
+                found.update(re.findall(r"/jobs/(\d+)", html))
+            except Exception:
+                pass
+
+            if len(found) == previous_count:
+                stable_rounds += 1
+            else:
+                stable_rounds = 0
+                previous_count = len(found)
+
+            page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+            page.wait_for_timeout(400)
+            if stable_rounds >= 5:
+                break
+
+        print(f"Sera All Jobs discovery found {len(found)} job IDs.")
+        if not found:
+            print("WARNING: All Jobs report yielded no job IDs; retaining local-source fallback.")
+
+        try:
+            browser.close()
+        except Exception:
+            pass
+
+    return found
+
+
+def install_complete_job_discovery():
+    """Merge Sera report IDs with the existing local sources used by the migrator."""
+    local_loader = migration.load_all_job_ids
+    discovered = discover_all_sera_job_ids()
+
+    def load_complete_job_ids():
+        local = set(local_loader())
+        combined = local | discovered
+        print(
+            f"Job discovery: {len(discovered)} from Sera report + "
+            f"{len(local)} from local sources = {len(combined)} unique jobs."
+        )
+        return sorted(combined, key=int, reverse=True)
+
+    migration.load_all_job_ids = load_complete_job_ids
 
 
 def comment_body(note_text):
@@ -107,4 +189,5 @@ migration.add_job_summary = add_job_summary_exact
 migration.add_customer_note = add_customer_note_safe
 
 if __name__ == "__main__":
+    install_complete_job_discovery()
     migration.main()

@@ -5,129 +5,136 @@ from pathlib import Path
 
 from playwright.sync_api import sync_playwright
 
-from sera.notes import get_or_open_sera_page, load_job_comments
+from sera.notes import get_or_open_sera_page, load_job_data
 from servicetitan.browser import connect, wait_for_servicetitan
 from servicetitan.job_search import JobSearcher
 from servicetitan.customer_search import CustomerSearcher
 
 APP_DATA = Path(os.getenv("LOCALAPPDATA")) / "Sera ServiceTitan Migration"
 MIGRATION_LOG = APP_DATA / "migration_log.csv"
+MEDIA_ROOTS = [APP_DATA / "sera_media", Path(__file__).resolve().parent / "sera_media"]
+MIGRATION_DATABASES = [APP_DATA / "migration.db", Path(__file__).resolve().parent / "database" / "migration.db"]
 
-# The project has used both of these media locations over its lifetime. Check both.
-MEDIA_ROOTS = [
-    APP_DATA / "sera_media",
-    Path(__file__).resolve().parent / "sera_media",
+# Customer matching exports used earlier in this migration project.
+MATCHING_FILES = [
+    APP_DATA / "Sera_ServiceTitan_Matching.xlsx",
+    Path(__file__).resolve().parent / "Sera_ServiceTitan_Matching.xlsx",
 ]
 
-# The original project database stores Job.sera_job_number -> Customer.legacy_id.
-MIGRATION_DATABASES = [
-    APP_DATA / "migration.db",
-    Path(__file__).resolve().parent / "database" / "migration.db",
-]
-
-# First end-to-end test. Keep this to one job until verified.
 JOB_IDS = ["6505724"]
-
-# Set False only after the dry-run output looks correct.
 DRY_RUN = True
 
 
+def clean_id(value):
+    value = str(value or "").strip()
+    if value.endswith(".0") and value[:-2].isdigit():
+        value = value[:-2]
+    return value
+
+
 def add_mapping(mapping, sources, job_id, legacy_id, source):
-    job_id = str(job_id or "").strip()
-    legacy_id = str(legacy_id or "").strip()
+    job_id, legacy_id = clean_id(job_id), clean_id(legacy_id)
     if not job_id or not legacy_id or legacy_id.lower() == "none":
         return
-
     if job_id not in mapping:
         mapping[job_id] = legacy_id
         sources[job_id] = source
-    elif mapping[job_id] != legacy_id:
-        print(
-            f"WARNING: conflicting Legacy IDs for Sera job {job_id}: "
-            f"keeping {mapping[job_id]} from {sources[job_id]}, "
-            f"ignoring {legacy_id} from {source}"
-        )
-
-
-def load_from_database(mapping, sources, db_path):
-    if not db_path.exists():
-        return
-
-    try:
-        connection = sqlite3.connect(str(db_path))
-        cursor = connection.cursor()
-        cursor.execute(
-            """
-            SELECT jobs.sera_job_number, customers.legacy_id
-            FROM jobs
-            JOIN customers ON customers.id = jobs.customer_id
-            WHERE jobs.sera_job_number IS NOT NULL
-              AND customers.legacy_id IS NOT NULL
-            """
-        )
-        for job_id, legacy_id in cursor.fetchall():
-            add_mapping(mapping, sources, job_id, legacy_id, f"database {db_path}")
-        connection.close()
-    except Exception as exc:
-        print(f"Could not read customer mapping database {db_path}: {exc}")
 
 
 def load_job_to_customer_map():
-    mapping = {}
-    sources = {}
+    mapping, sources = {}, {}
 
-    # Strongest source: original migration database. The schema explicitly relates
-    # jobs.sera_job_number to the owning customer, which carries legacy_id.
-    seen_databases = set()
     for db_path in MIGRATION_DATABASES:
-        resolved = str(db_path.resolve())
-        if resolved in seen_databases:
+        if not db_path.exists():
             continue
-        seen_databases.add(resolved)
-        load_from_database(mapping, sources, db_path)
+        try:
+            connection = sqlite3.connect(str(db_path))
+            cursor = connection.cursor()
+            cursor.execute("SELECT jobs.sera_job_number, customers.legacy_id FROM jobs JOIN customers ON customers.id = jobs.customer_id WHERE jobs.sera_job_number IS NOT NULL AND customers.legacy_id IS NOT NULL")
+            for job_id, legacy_id in cursor.fetchall():
+                add_mapping(mapping, sources, job_id, legacy_id, f"database {db_path}")
+            connection.close()
+        except Exception as exc:
+            print(f"Could not read {db_path}: {exc}")
 
-    # Next use migration_log.csv for jobs that actually produced media log rows.
     if MIGRATION_LOG.exists():
         with MIGRATION_LOG.open("r", newline="", encoding="utf-8-sig") as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                add_mapping(
-                    mapping,
-                    sources,
-                    row.get("Job Number"),
-                    row.get("Legacy ID"),
-                    f"migration log {MIGRATION_LOG}",
-                )
+            for row in csv.DictReader(f):
+                add_mapping(mapping, sources, row.get("Job Number"), row.get("Legacy ID"), f"migration log {MIGRATION_LOG}")
 
-    # Last fallback: recover mapping from Customer_<legacy>/Job_<sera job> folders.
-    seen_roots = set()
     for media_root in MEDIA_ROOTS:
-        resolved = str(media_root.resolve())
-        if resolved in seen_roots or not media_root.exists():
+        if not media_root.exists():
             continue
-        seen_roots.add(resolved)
-
         for customer_dir in media_root.glob("Customer_*"):
-            if not customer_dir.is_dir():
-                continue
             legacy_id = customer_dir.name.replace("Customer_", "", 1).strip()
             for job_dir in customer_dir.glob("Job_*"):
-                if not job_dir.is_dir():
-                    continue
-                job_id = job_dir.name.replace("Job_", "", 1).strip()
-                add_mapping(mapping, sources, job_id, legacy_id, f"media folder {job_dir}")
+                add_mapping(mapping, sources, job_dir.name.replace("Job_", "", 1), legacy_id, f"media folder {job_dir}")
 
     return mapping, sources
 
 
+def find_matching_workbook():
+    for path in MATCHING_FILES:
+        if path.exists():
+            return path
+    # Also search common project/app-data locations without requiring a fixed filename location.
+    roots = [APP_DATA, Path(__file__).resolve().parent, Path.home() / "Downloads", Path.home() / "Documents"]
+    for root in roots:
+        if not root.exists():
+            continue
+        matches = list(root.glob("Sera_ServiceTitan_Matching*.xlsx"))
+        if matches:
+            return matches[0]
+    return None
+
+
+def load_sera_customer_crosswalk():
+    workbook = find_matching_workbook()
+    if workbook is None:
+        return {}, {}, None
+
+    try:
+        from openpyxl import load_workbook
+    except ImportError:
+        print("WARNING: openpyxl is not installed; cannot read Sera_ServiceTitan_Matching.xlsx")
+        return {}, {}, workbook
+
+    by_sera_id, names = {}, {}
+    wb = load_workbook(workbook, read_only=True, data_only=True)
+
+    preferred = [name for name in ["Matched", "All Matches"] if name in wb.sheetnames]
+    sheet_names = preferred or wb.sheetnames
+
+    for sheet_name in sheet_names:
+        ws = wb[sheet_name]
+        rows = ws.iter_rows(values_only=True)
+        try:
+            header = [str(v or "").strip() for v in next(rows)]
+        except StopIteration:
+            continue
+
+        columns = {name: i for i, name in enumerate(header)}
+        if "Sera ID" not in columns or "ServiceTitan Legacy ID" not in columns:
+            continue
+
+        for row in rows:
+            sera_id = clean_id(row[columns["Sera ID"]] if columns["Sera ID"] < len(row) else "")
+            legacy_id = clean_id(row[columns["ServiceTitan Legacy ID"]] if columns["ServiceTitan Legacy ID"] < len(row) else "")
+            if not sera_id or not legacy_id:
+                continue
+            by_sera_id.setdefault(sera_id, legacy_id)
+            if "Sera Customer Name" in columns and columns["Sera Customer Name"] < len(row):
+                names.setdefault(sera_id, str(row[columns["Sera Customer Name"]] or "").strip())
+
+    wb.close()
+    return by_sera_id, names, workbook
+
+
 def format_note(job_id, comment):
-    stamp = comment.get("timestamp") or " ".join(
-        part for part in [comment.get("date", ""), comment.get("time", "")] if part
-    )
+    stamp = comment.get("timestamp") or " ".join(part for part in [comment.get("date", ""), comment.get("time", "")] if part)
     author = comment.get("author") or "Unknown"
     marker = f"[Migrated from Sera | Job {job_id} | {stamp} | {author}]"
-    body = comment["text"].strip()
-    return marker, f"{marker}\n\n{body}"
+    return marker, f"{marker}\n\n{comment['text'].strip()}"
 
 
 def page_contains_marker(page, marker):
@@ -138,11 +145,7 @@ def page_contains_marker(page, marker):
 
 
 def find_single_visible_editor(page):
-    candidates = page.locator(
-        "textarea:visible, [contenteditable='true']:visible, "
-        "input[type='text']:visible"
-    )
-
+    candidates = page.locator("textarea:visible, [contenteditable='true']:visible, input[type='text']:visible")
     usable = []
     for i in range(candidates.count()):
         item = candidates.nth(i)
@@ -151,12 +154,8 @@ def find_single_visible_editor(page):
                 usable.append(item)
         except Exception:
             pass
-
     if len(usable) != 1:
-        raise RuntimeError(
-            f"Expected exactly one visible note editor after clicking Add, found {len(usable)}"
-        )
-
+        raise RuntimeError(f"Expected exactly one visible note editor after clicking Add, found {len(usable)}")
     return usable[0]
 
 
@@ -166,39 +165,21 @@ def fill_editor(editor, text):
         editor.fill(text)
     else:
         editor.click()
-        editor.evaluate(
-            "(el, value) => { el.innerText = value; "
-            "el.dispatchEvent(new InputEvent('input', {bubbles:true, inputType:'insertText', data:value})); }",
-            text,
-        )
+        editor.evaluate("(el, value) => { el.innerText = value; el.dispatchEvent(new InputEvent('input', {bubbles:true, inputType:'insertText', data:value})); }", text)
 
 
 def click_single_save_button(page):
     buttons = page.locator("button:visible")
     matches = []
-
     for i in range(buttons.count()):
         button = buttons.nth(i)
         try:
-            if not button.is_enabled():
-                continue
-            text = " ".join(button.inner_text().split()).strip().lower()
-            if text in {"save", "add", "add note", "add summary", "submit"}:
+            if button.is_enabled() and " ".join(button.inner_text().split()).strip().lower() in {"save", "add", "add note", "add summary", "submit"}:
                 matches.append(button)
         except Exception:
             pass
-
     if len(matches) != 1:
-        labels = []
-        for button in matches:
-            try:
-                labels.append(" ".join(button.inner_text().split()))
-            except Exception:
-                labels.append("?")
-        raise RuntimeError(
-            f"Expected exactly one visible Save/Add button, found {len(matches)}: {labels}"
-        )
-
+        raise RuntimeError(f"Expected exactly one visible Save/Add button, found {len(matches)}")
     matches[0].click()
 
 
@@ -206,35 +187,19 @@ def add_job_summary(page, note_text, marker):
     if page_contains_marker(page, marker):
         print("Already present on job; skipping duplicate.")
         return "SKIPPED"
-
     add_button = page.locator('button[data-tracking-id="jpm-job-add-button"]')
     add_button.wait_for(state="visible", timeout=10000)
-
     if DRY_RUN:
         print("DRY RUN: would click + Add Summary and add:")
         print(note_text)
         return "DRY_RUN"
-
-    before_editors = page.locator(
-        "textarea:visible, [contenteditable='true']:visible, input[type='text']:visible"
-    ).count()
-
     add_button.click()
     page.wait_for_timeout(500)
-
-    editor = find_single_visible_editor(page)
-    after_editors = page.locator(
-        "textarea:visible, [contenteditable='true']:visible, input[type='text']:visible"
-    ).count()
-
-    print(f"Visible editors before/after Add Summary: {before_editors}/{after_editors}")
-    fill_editor(editor, note_text)
+    fill_editor(find_single_visible_editor(page), note_text)
     click_single_save_button(page)
     page.wait_for_timeout(1200)
-
     if not page_contains_marker(page, marker):
         raise RuntimeError("Job summary save was clicked, but migrated note marker is not visible")
-
     return "SUCCESS"
 
 
@@ -242,64 +207,79 @@ def add_customer_note(page, note_text, marker):
     if page_contains_marker(page, marker):
         print("Already present on customer; skipping duplicate.")
         return "SKIPPED"
-
     add_button = page.locator('button[data-tracking-id="crm-notes-add-note-button"]')
     add_button.wait_for(state="visible", timeout=10000)
-
     if DRY_RUN:
         print("DRY RUN: would click Add Note and add:")
         print(note_text)
         return "DRY_RUN"
-
     add_button.click()
     page.wait_for_timeout(500)
-    editor = find_single_visible_editor(page)
-    fill_editor(editor, note_text)
+    fill_editor(find_single_visible_editor(page), note_text)
     click_single_save_button(page)
     page.wait_for_timeout(1200)
-
     if not page_contains_marker(page, marker):
         raise RuntimeError("Customer note save was clicked, but migrated note marker is not visible")
-
     return "SUCCESS"
 
 
 def main():
-    job_to_customer, mapping_sources = load_job_to_customer_map()
+    old_job_map, old_sources = load_job_to_customer_map()
+    sera_crosswalk, sera_names, workbook = load_sera_customer_crosswalk()
+
+    print(f"Customer crosswalk: {workbook or 'NOT FOUND'}")
+    print(f"Sera customers loaded from crosswalk: {len(sera_crosswalk)}")
 
     with sync_playwright() as p:
         browser, context = connect(p)
         st_page = wait_for_servicetitan(context)
         sera_page = get_or_open_sera_page(context)
-
-        st_page.bring_to_front()
         job_search = JobSearcher(st_page)
         customer_search = CustomerSearcher(st_page)
 
-        total_notes = 0
-        completed = 0
-        skipped = 0
+        total_notes = completed = skipped = 0
         failures = []
 
         for job_id in JOB_IDS:
             print("=" * 80)
             print(f"SERA NOTE MIGRATION: job {job_id}")
-            legacy_id = job_to_customer.get(job_id)
-            print(f"Legacy ID: {legacy_id or 'not found'}")
-            if legacy_id:
-                print(f"Mapping source: {mapping_sources.get(job_id, 'unknown')}")
             print(f"Mode: {'DRY RUN' if DRY_RUN else 'WRITE'}")
             print("=" * 80)
 
-            comments = load_job_comments(sera_page, job_id)
-            print(f"Found {len(comments)} Sera comment(s)")
+            try:
+                job_data = load_job_data(sera_page, job_id)
+            except Exception as exc:
+                failures.append((job_id, f"Could not load Sera job: {exc}"))
+                print(f"FAILED loading Sera job: {exc}")
+                continue
+
+            sera_customer_id = clean_id(job_data["sera_customer_id"])
+            sera_customer_name = job_data["customer_name"]
+            comments = job_data["comments"]
             total_notes += len(comments)
+
+            # PRIMARY mapping: actual customer link on the actual Sera job page.
+            legacy_id = sera_crosswalk.get(sera_customer_id)
+            mapping_source = f"Sera job customer link + {workbook}" if legacy_id else None
+
+            # Backup only: old media/database-derived job mapping.
+            if not legacy_id:
+                legacy_id = old_job_map.get(job_id)
+                mapping_source = old_sources.get(job_id) if legacy_id else None
+
+            print(f"Sera customer: {sera_customer_name}")
+            print(f"Sera customer ID: {sera_customer_id}")
+            print(f"ServiceTitan Legacy ID: {legacy_id or 'not found'}")
+            if mapping_source:
+                print(f"Mapping source: {mapping_source}")
+            if sera_customer_id in sera_names and sera_names[sera_customer_id]:
+                print(f"Crosswalk customer name: {sera_names[sera_customer_id]}")
+            print(f"Found {len(comments)} Sera comment(s)")
 
             if not comments:
                 continue
 
             st_page.bring_to_front()
-
             try:
                 job_found = job_search.open_job(job_id)
             except Exception as exc:
@@ -307,19 +287,17 @@ def main():
                 job_found = False
 
             destination = "JOB" if job_found else None
-
             if not job_found:
                 if not legacy_id:
-                    failures.append((job_id, "Job not found and Legacy ID unavailable for customer fallback"))
-                    print("Cannot fall back to customer because Legacy ID is unavailable.")
+                    failures.append((job_id, f"No Legacy ID for Sera customer {sera_customer_id} ({sera_customer_name})"))
+                    print("Cannot fall back to customer because the Sera customer is not mapped to a ServiceTitan Legacy ID.")
                     continue
-
                 print(f"Job not found; falling back to customer Legacy ID {legacy_id}...")
                 try:
                     if customer_search.open_customer(legacy_id):
                         destination = "CUSTOMER"
                     else:
-                        failures.append((job_id, "Neither job nor customer found"))
+                        failures.append((job_id, f"ServiceTitan customer {legacy_id} not found"))
                         continue
                 except Exception as exc:
                     failures.append((job_id, f"Customer search error: {exc}"))
@@ -330,13 +308,8 @@ def main():
                 print("-" * 80)
                 print(f"Comment {number}/{len(comments)} -> {destination}")
                 print(marker)
-
                 try:
-                    if destination == "JOB":
-                        result = add_job_summary(st_page, note_text, marker)
-                    else:
-                        result = add_customer_note(st_page, note_text, marker)
-
+                    result = add_job_summary(st_page, note_text, marker) if destination == "JOB" else add_customer_note(st_page, note_text, marker)
                     if result == "SKIPPED":
                         skipped += 1
                     else:

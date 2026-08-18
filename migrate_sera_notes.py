@@ -17,7 +17,7 @@ MEDIA_ROOTS = [APP_DATA / "sera_media", Path(__file__).resolve().parent / "sera_
 MIGRATION_DATABASES = [APP_DATA / "migration.db", Path(__file__).resolve().parent / "database" / "migration.db"]
 
 JOB_IDS = ["6505724"]
-DRY_RUN = True
+DRY_RUN = False
 
 
 def clean_id(value):

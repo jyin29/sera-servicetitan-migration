@@ -74,15 +74,7 @@ def format_note(job_id, comment):
 def save_failed_job(job_id, job_data, reason):
     FAILED_DIR.mkdir(parents=True, exist_ok=True)
     path = FAILED_DIR / f"Job_{job_id}.txt"
-    lines = [
-        f"Sera Job: {job_id}",
-        f"Sera Customer: {job_data.get('customer_name', '')}",
-        f"Sera Customer ID / ServiceTitan Legacy ID: {job_data.get('sera_customer_id', '')}",
-        f"Reason: {reason}",
-        "",
-        "COMMENTS",
-        "=" * 80,
-    ]
+    lines = [f"Sera Job: {job_id}", f"Sera Customer: {job_data.get('customer_name', '')}", f"Sera Customer ID / ServiceTitan Legacy ID: {job_data.get('sera_customer_id', '')}", f"Reason: {reason}", "", "COMMENTS", "=" * 80]
     for number, comment in enumerate(job_data.get("comments", []), start=1):
         marker, note_text = format_note(job_id, comment)
         lines.extend([f"Comment {number}", note_text, "", "-" * 80])
@@ -98,6 +90,24 @@ def page_contains_marker(page, marker):
 
 
 def find_single_visible_editor(page):
+    # ServiceTitan customer Add Note opens this exact textarea. The generated ID is
+    # unstable, so target its stable placeholder/component attributes instead.
+    note_box = page.locator('textarea[placeholder="Leave a note..."][data-anvil-component="TextArea"]:visible')
+    try:
+        note_box.first.wait_for(state="visible", timeout=5000)
+    except Exception:
+        pass
+
+    if note_box.count() == 1:
+        editor = note_box.first
+        editor.scroll_into_view_if_needed()
+        editor.click()
+        editor.focus()
+        print("Focused ServiceTitan 'Leave a note...' textbox.")
+        return editor
+
+    # Keep a guarded generic fallback for the Job Summary editor, whose markup may
+    # differ from the customer-note textarea.
     candidates = page.locator("textarea:visible, [contenteditable='true']:visible, input[type='text']:visible")
     usable = []
     for i in range(candidates.count()):
@@ -109,15 +119,20 @@ def find_single_visible_editor(page):
             pass
     if len(usable) != 1:
         raise RuntimeError(f"Expected exactly one visible note editor after clicking Add, found {len(usable)}")
+    usable[0].scroll_into_view_if_needed()
+    usable[0].click()
+    usable[0].focus()
     return usable[0]
 
 
 def fill_editor(editor, text):
     tag = editor.evaluate("el => el.tagName.toLowerCase()")
+    editor.scroll_into_view_if_needed()
+    editor.click()
+    editor.focus()
     if tag in {"textarea", "input"}:
         editor.fill(text)
     else:
-        editor.click()
         editor.evaluate("(el, value) => { el.innerText = value; el.dispatchEvent(new InputEvent('input', {bubbles:true, inputType:'insertText', data:value})); }", text)
 
 
@@ -167,8 +182,13 @@ def add_customer_note(page, note_text, marker):
         print(note_text)
         return "DRY_RUN"
     add_button.click()
-    page.wait_for_timeout(500)
-    fill_editor(find_single_visible_editor(page), note_text)
+    note_box = page.locator('textarea[placeholder="Leave a note..."][data-anvil-component="TextArea"]:visible').first
+    note_box.wait_for(state="visible", timeout=10000)
+    note_box.scroll_into_view_if_needed()
+    note_box.click()
+    note_box.focus()
+    print("Focused ServiceTitan customer note textbox.")
+    note_box.fill(note_text)
     click_single_save_button(page)
     page.wait_for_timeout(1200)
     if not page_contains_marker(page, marker):
@@ -178,56 +198,46 @@ def add_customer_note(page, note_text, marker):
 
 def main():
     old_job_map, old_sources = load_job_to_customer_map()
-
     with sync_playwright() as p:
         browser, context = connect(p)
         st_page = wait_for_servicetitan(context)
         sera_page = get_or_open_sera_page(context)
         job_search = JobSearcher(st_page)
         customer_search = CustomerSearcher(st_page)
-
         total_notes = completed = skipped = 0
         failures = []
-
         for job_id in JOB_IDS:
             print("=" * 80)
             print(f"SERA NOTE MIGRATION: job {job_id}")
             print(f"Mode: {'DRY RUN' if DRY_RUN else 'WRITE'}")
             print("=" * 80)
-
             try:
                 job_data = load_job_data(sera_page, job_id)
             except Exception as exc:
                 failures.append((job_id, f"Could not load Sera job: {exc}"))
                 print(f"FAILED loading Sera job: {exc}")
                 continue
-
             sera_customer_id = clean_id(job_data["sera_customer_id"])
             sera_customer_name = job_data["customer_name"]
             comments = job_data["comments"]
             total_notes += len(comments)
             legacy_id = sera_customer_id
-
             old_legacy_id = old_job_map.get(job_id)
             if old_legacy_id and old_legacy_id != legacy_id:
                 print(f"WARNING: old migration data says Legacy ID {old_legacy_id}, but Sera job page says customer ID {legacy_id}. Using Sera job page.")
-
             print(f"Sera customer: {sera_customer_name}")
             print(f"Sera customer ID: {sera_customer_id}")
             print(f"ServiceTitan Legacy ID: {legacy_id}")
             print("Mapping source: Sera customer link (Sera customer ID = ServiceTitan Legacy ID)")
             print(f"Found {len(comments)} Sera comment(s)")
-
             if not comments:
                 continue
-
             st_page.bring_to_front()
             try:
                 job_found = job_search.open_job(job_id)
             except Exception as exc:
                 print(f"Job search error: {exc}")
                 job_found = False
-
             destination = "JOB" if job_found else None
             if not job_found:
                 print(f"Job not found; falling back to customer Legacy ID {legacy_id}...")
@@ -238,7 +248,6 @@ def main():
                         customer_found = customer_search.open_customer_by_name(sera_customer_name)
                 except Exception as exc:
                     print(f"Customer search error: {exc}")
-
                 if customer_found:
                     destination = "CUSTOMER"
                 else:
@@ -246,7 +255,6 @@ def main():
                     failures.append((job_id, reason))
                     save_failed_job(job_id, job_data, reason)
                     continue
-
             for number, comment in enumerate(comments, start=1):
                 marker, note_text = format_note(job_id, comment)
                 print("-" * 80)
@@ -264,7 +272,6 @@ def main():
                     failures.append((job_id, reason))
                     save_failed_job(job_id, job_data, reason)
                     break
-
         print("=" * 80)
         print("NOTE MIGRATION COMPLETE")
         print(f"Sera comments found: {total_notes}")

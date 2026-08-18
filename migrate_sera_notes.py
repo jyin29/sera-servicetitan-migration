@@ -90,14 +90,11 @@ def page_contains_marker(page, marker):
 
 
 def find_single_visible_editor(page):
-    # ServiceTitan customer Add Note opens this exact textarea. The generated ID is
-    # unstable, so target its stable placeholder/component attributes instead.
     note_box = page.locator('textarea[placeholder="Leave a note..."][data-anvil-component="TextArea"]:visible')
     try:
         note_box.first.wait_for(state="visible", timeout=5000)
     except Exception:
         pass
-
     if note_box.count() == 1:
         editor = note_box.first
         editor.scroll_into_view_if_needed()
@@ -105,9 +102,6 @@ def find_single_visible_editor(page):
         editor.focus()
         print("Focused ServiceTitan 'Leave a note...' textbox.")
         return editor
-
-    # Keep a guarded generic fallback for the Job Summary editor, whose markup may
-    # differ from the customer-note textarea.
     candidates = page.locator("textarea:visible, [contenteditable='true']:visible, input[type='text']:visible")
     usable = []
     for i in range(candidates.count()):
@@ -189,10 +183,21 @@ def add_customer_note(page, note_text, marker):
     note_box.focus()
     print("Focused ServiceTitan customer note textbox.")
     note_box.fill(note_text)
-    click_single_save_button(page)
-    page.wait_for_timeout(1200)
+
+    # Submit with the exact button inside ServiceTitan's Add Note form. Do not use
+    # the generic Save/Add matcher here because the original page-level Add Note
+    # button can remain visible behind the form.
+    submit = page.locator('button[data-tracking-id="add-note-button"]:visible')
+    submit.wait_for(state="visible", timeout=10000)
+    if submit.count() != 1:
+        raise RuntimeError(f"Expected exactly one Add Note submit button, found {submit.count()}")
+    submit.scroll_into_view_if_needed()
+    submit.click()
+    print("Clicked ServiceTitan Add Note submit button.")
+
+    page.wait_for_timeout(1500)
     if not page_contains_marker(page, marker):
-        raise RuntimeError("Customer note save was clicked, but migrated note marker is not visible")
+        raise RuntimeError("Customer Add Note was clicked, but migrated note marker is not visible")
     return "SUCCESS"
 
 

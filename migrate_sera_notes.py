@@ -15,12 +15,6 @@ MIGRATION_LOG = APP_DATA / "migration_log.csv"
 MEDIA_ROOTS = [APP_DATA / "sera_media", Path(__file__).resolve().parent / "sera_media"]
 MIGRATION_DATABASES = [APP_DATA / "migration.db", Path(__file__).resolve().parent / "database" / "migration.db"]
 
-# Customer matching exports used earlier in this migration project.
-MATCHING_FILES = [
-    APP_DATA / "Sera_ServiceTitan_Matching.xlsx",
-    Path(__file__).resolve().parent / "Sera_ServiceTitan_Matching.xlsx",
-]
-
 JOB_IDS = ["6505724"]
 DRY_RUN = True
 
@@ -43,7 +37,6 @@ def add_mapping(mapping, sources, job_id, legacy_id, source):
 
 def load_job_to_customer_map():
     mapping, sources = {}, {}
-
     for db_path in MIGRATION_DATABASES:
         if not db_path.exists():
             continue
@@ -56,12 +49,10 @@ def load_job_to_customer_map():
             connection.close()
         except Exception as exc:
             print(f"Could not read {db_path}: {exc}")
-
     if MIGRATION_LOG.exists():
         with MIGRATION_LOG.open("r", newline="", encoding="utf-8-sig") as f:
             for row in csv.DictReader(f):
                 add_mapping(mapping, sources, row.get("Job Number"), row.get("Legacy ID"), f"migration log {MIGRATION_LOG}")
-
     for media_root in MEDIA_ROOTS:
         if not media_root.exists():
             continue
@@ -69,65 +60,7 @@ def load_job_to_customer_map():
             legacy_id = customer_dir.name.replace("Customer_", "", 1).strip()
             for job_dir in customer_dir.glob("Job_*"):
                 add_mapping(mapping, sources, job_dir.name.replace("Job_", "", 1), legacy_id, f"media folder {job_dir}")
-
     return mapping, sources
-
-
-def find_matching_workbook():
-    for path in MATCHING_FILES:
-        if path.exists():
-            return path
-    # Also search common project/app-data locations without requiring a fixed filename location.
-    roots = [APP_DATA, Path(__file__).resolve().parent, Path.home() / "Downloads", Path.home() / "Documents"]
-    for root in roots:
-        if not root.exists():
-            continue
-        matches = list(root.glob("Sera_ServiceTitan_Matching*.xlsx"))
-        if matches:
-            return matches[0]
-    return None
-
-
-def load_sera_customer_crosswalk():
-    workbook = find_matching_workbook()
-    if workbook is None:
-        return {}, {}, None
-
-    try:
-        from openpyxl import load_workbook
-    except ImportError:
-        print("WARNING: openpyxl is not installed; cannot read Sera_ServiceTitan_Matching.xlsx")
-        return {}, {}, workbook
-
-    by_sera_id, names = {}, {}
-    wb = load_workbook(workbook, read_only=True, data_only=True)
-
-    preferred = [name for name in ["Matched", "All Matches"] if name in wb.sheetnames]
-    sheet_names = preferred or wb.sheetnames
-
-    for sheet_name in sheet_names:
-        ws = wb[sheet_name]
-        rows = ws.iter_rows(values_only=True)
-        try:
-            header = [str(v or "").strip() for v in next(rows)]
-        except StopIteration:
-            continue
-
-        columns = {name: i for i, name in enumerate(header)}
-        if "Sera ID" not in columns or "ServiceTitan Legacy ID" not in columns:
-            continue
-
-        for row in rows:
-            sera_id = clean_id(row[columns["Sera ID"]] if columns["Sera ID"] < len(row) else "")
-            legacy_id = clean_id(row[columns["ServiceTitan Legacy ID"]] if columns["ServiceTitan Legacy ID"] < len(row) else "")
-            if not sera_id or not legacy_id:
-                continue
-            by_sera_id.setdefault(sera_id, legacy_id)
-            if "Sera Customer Name" in columns and columns["Sera Customer Name"] < len(row):
-                names.setdefault(sera_id, str(row[columns["Sera Customer Name"]] or "").strip())
-
-    wb.close()
-    return by_sera_id, names, workbook
 
 
 def format_note(job_id, comment):
@@ -225,10 +158,6 @@ def add_customer_note(page, note_text, marker):
 
 def main():
     old_job_map, old_sources = load_job_to_customer_map()
-    sera_crosswalk, sera_names, workbook = load_sera_customer_crosswalk()
-
-    print(f"Customer crosswalk: {workbook or 'NOT FOUND'}")
-    print(f"Sera customers loaded from crosswalk: {len(sera_crosswalk)}")
 
     with sync_playwright() as p:
         browser, context = connect(p)
@@ -258,22 +187,21 @@ def main():
             comments = job_data["comments"]
             total_notes += len(comments)
 
-            # PRIMARY mapping: actual customer link on the actual Sera job page.
-            legacy_id = sera_crosswalk.get(sera_customer_id)
-            mapping_source = f"Sera job customer link + {workbook}" if legacy_id else None
+            # In this migration, Sera's customer ID is the customer's legacy ID in
+            # ServiceTitan. Read it directly from /customers/<id> on the Sera job.
+            legacy_id = sera_customer_id
+            mapping_source = "Sera customer link (Sera customer ID = ServiceTitan Legacy ID)"
 
-            # Backup only: old media/database-derived job mapping.
-            if not legacy_id:
-                legacy_id = old_job_map.get(job_id)
-                mapping_source = old_sources.get(job_id) if legacy_id else None
+            # Old migration mappings remain only as a sanity check. They must never
+            # silently redirect this job to a different customer.
+            old_legacy_id = old_job_map.get(job_id)
+            if old_legacy_id and old_legacy_id != legacy_id:
+                print(f"WARNING: old migration data says Legacy ID {old_legacy_id}, but Sera job page says customer ID {legacy_id}. Using Sera job page.")
 
             print(f"Sera customer: {sera_customer_name}")
             print(f"Sera customer ID: {sera_customer_id}")
-            print(f"ServiceTitan Legacy ID: {legacy_id or 'not found'}")
-            if mapping_source:
-                print(f"Mapping source: {mapping_source}")
-            if sera_customer_id in sera_names and sera_names[sera_customer_id]:
-                print(f"Crosswalk customer name: {sera_names[sera_customer_id]}")
+            print(f"ServiceTitan Legacy ID: {legacy_id}")
+            print(f"Mapping source: {mapping_source}")
             print(f"Found {len(comments)} Sera comment(s)")
 
             if not comments:
@@ -288,10 +216,6 @@ def main():
 
             destination = "JOB" if job_found else None
             if not job_found:
-                if not legacy_id:
-                    failures.append((job_id, f"No Legacy ID for Sera customer {sera_customer_id} ({sera_customer_name})"))
-                    print("Cannot fall back to customer because the Sera customer is not mapped to a ServiceTitan Legacy ID.")
-                    continue
                 print(f"Job not found; falling back to customer Legacy ID {legacy_id}...")
                 try:
                     if customer_search.open_customer(legacy_id):

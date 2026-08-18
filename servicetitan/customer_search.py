@@ -45,15 +45,38 @@ class CustomerSearcher:
         self._reset_search()
         return True
 
-    def open_customer(self, legacy_id: str) -> bool:
-        """Open only a customer result that explicitly contains the requested legacy ID.
+    def _result_text(self, result):
+        """Return all useful visible/accessible text attached to a search result."""
+        pieces = []
+        for getter in (
+            lambda: result.inner_text(),
+            lambda: result.get_attribute("title"),
+            lambda: result.get_attribute("aria-label"),
+            lambda: result.get_attribute("href"),
+        ):
+            try:
+                value = getter()
+                if value:
+                    pieces.append(" ".join(str(value).split()))
+            except Exception:
+                pass
 
-        Global Search can return several customers for a numeric search. Previously we
-        opened the first result, which could be the wrong customer. Now every candidate
-        is inspected and we only open a result containing the exact ID as a standalone
-        number. If none can be proven exact, return False so the caller can try the
-        guarded name fallback instead.
-        """
+        # ServiceTitan sometimes renders the customer name in child/sibling content
+        # rather than directly as the anchor's innerText. Include the result's nearest
+        # row/container text so a visibly displayed name can actually be matched.
+        try:
+            container = result.locator("xpath=ancestor::*[self::li or self::div][1]")
+            if container.count():
+                value = container.inner_text()
+                if value:
+                    pieces.append(" ".join(value.split()))
+        except Exception:
+            pass
+
+        # Preserve order while removing duplicate strings.
+        return " | ".join(dict.fromkeys(pieces))
+
+    def open_customer(self, legacy_id: str) -> bool:
         legacy_id = str(legacy_id).strip()
         print(f"\nSearching for customer {legacy_id}...")
         self._search(legacy_id)
@@ -68,13 +91,8 @@ class CustomerSearcher:
         for i in range(count):
             result = customers.nth(i)
             try:
-                text = " ".join(result.inner_text().split()).strip()
-                title = (result.get_attribute("title") or "").strip()
-                aria = (result.get_attribute("aria-label") or "").strip()
-                href = (result.get_attribute("href") or "").strip()
-                combined = " | ".join(x for x in [text, title, aria, href] if x)
+                combined = self._result_text(result)
                 print(f"Candidate customer: {combined}")
-
                 if pattern.search(combined):
                     exact.append(result)
             except Exception as exc:
@@ -92,12 +110,7 @@ class CustomerSearcher:
         return False
 
     def open_customer_by_name(self, customer_name: str) -> bool:
-        """Name fallback used only when the legacy-ID search cannot prove a match.
-
-        Automatically open a result only when exactly one customer search result
-        contains the complete requested name. Ambiguous matches are left unresolved.
-        """
-        wanted = " ".join(str(customer_name).lower().split())
+        wanted = " ".join(str(customer_name).casefold().split())
         print(f"\nLegacy ID lookup failed. Searching customer by name: {customer_name}...")
         self._search(customer_name)
 
@@ -109,21 +122,21 @@ class CustomerSearcher:
         for i in range(count):
             result = customers.nth(i)
             try:
-                raw = result.inner_text().strip()
-                text = " ".join(raw.lower().split())
-                print(f"Candidate customer: {raw}")
-                if wanted and wanted in text:
+                combined = self._result_text(result)
+                normalized = " ".join(combined.casefold().split())
+                print(f"Candidate customer: {combined}")
+                if wanted and wanted in normalized:
                     exact.append(result)
-            except Exception:
-                pass
+            except Exception as exc:
+                print(f"Could not inspect name-search result {i}: {exc}")
 
         if len(exact) == 1:
-            print("Unique matching customer name found.")
+            print(f"Unique matching customer name found: {customer_name}")
             return self._open_result(exact[0])
 
         self.page.keyboard.press("Escape")
         if not exact:
-            print("No matching customer name found.")
+            print(f"No result actually contained customer name '{customer_name}'.")
         else:
-            print(f"Name search is ambiguous ({len(exact)} matching customers); not choosing automatically.")
+            print(f"Name search is ambiguous ({len(exact)} results contain '{customer_name}'); not choosing automatically.")
         return False
